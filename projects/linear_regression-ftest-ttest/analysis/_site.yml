@@ -1,0 +1,16 @@
+name: "linear_regression-ftest-ttest"
+output_dir: ../docs
+navbar:
+  title: "Why t-tests and F-tests give different results"
+  left:
+  - text: Home
+    href: index.html
+output:
+  workflowr::wflow_html:
+    toc: yes
+    toc_float: yes
+    theme: cosmo
+    highlight: textmate
+    code_folding: hide
+  bookdown::html_document2: default
+

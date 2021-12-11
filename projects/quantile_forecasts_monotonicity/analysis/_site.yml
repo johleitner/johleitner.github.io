@@ -1,0 +1,14 @@
+name: "quantile_forecasts_monotonicity"
+output_dir: ../docs
+navbar:
+  title: "Monotonicity of quantile forecasts"
+  left:
+  - text: Home
+    href: index.html
+output:
+  workflowr::wflow_html:
+    toc: yes
+    toc_float: yes
+    theme: cosmo
+    highlight: textmate
+    code_folding: hide

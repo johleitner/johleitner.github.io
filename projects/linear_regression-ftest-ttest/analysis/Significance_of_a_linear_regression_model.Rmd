@@ -1,0 +1,449 @@
+---
+title: "How can all parameters of a linear regression model be both non-significant and significant?"
+author: "Johannes Leitner"
+output:
+  html_document:
+    df_print: paged
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+\newcommand\+{\raisebox{0.25ex}{+}}
+\newcommand{\matr}[1]{\mathbf{#1}}
+\DeclareMathOperator{\atantwo}{atan2}
+
+# Introduction
+
+It can be the case that none of the individual parameters of a linear OLS regression model are significantly different from zero (t-tests), but the total model (i.e. all parameters) is significant (F-test):
+
+```{r, message=FALSE, warning = FALSE}
+library(ggplot2) 
+library(dplyr)
+library(latex2exp) 
+library(ggforce)
+library(ggExtra)
+library(cowplot)
+library(here)
+library(knitr)
+```
+
+
+```{r, out.width="80%", fig.cap="R output of a linear regression with non-significant t-tests and significant F-test"}
+
+knitr::include_graphics("assets/Screenshot_Regression_Nothing_Significant.png", error = FALSE)
+
+```
+
+
+The reason for these apparently contradicting test results is that the acceptance region of the model's individual t-tests is a hyperrectangle, but the acceptance region of the F-test for simultaneous test of all parameters is an ellipsoid. This can be the case for uncorrelated explanatory variables but it is more probable if the explanatory variables are highly correlated. For the regression model 
+
+$$y = \beta_0 + \beta_1 x_{1} + \beta_2 x_{2} + \epsilon $$
+
+with 2 explanatory variables $x_1$ and $x_2$ that are 90% correlated the acceptance regions of the two t-tests and the F-test look as follows: 
+
+
+```{r, message=FALSE, warning = FALSE}
+
+n <- 500 #number of observations in the dataset     
+beta <- c(0.5,1) #the true parameters to be estimated by the regression model
+beta_null <- c(0, 0) #coefficients of the null hypothesis
+
+GenerateData <- function(beta, rho, n){
+  #generate two random vectors of length n with fixed correlation 
+  #rho and a dependent variable y using beta[1] and beta[2]
+  #credit for the code goes to 
+  #https://stats.stackexchange.com/questions/15011/
+  #generate-a-random-variable-with-a-defined-correlation-to-an-existing-variables
+  theta <- acos(rho)             # corresponding angle
+  x1    <- rnorm(n, 1, 1)        # fixed given data
+  x2    <- rnorm(n, 2, 0.5)      # new random data
+  X     <- cbind(x1, x2)         # matrix
+  Xctr  <- scale(X, center=TRUE, scale=FALSE)   # centered columns (mean 0)
+  Id   <- diag(n)                               # identity matrix
+  Q    <- qr.Q(qr(Xctr[ , 1, drop=FALSE]))      # QR-decomposition, just matrix Q
+  P    <- tcrossprod(Q)          # = Q Q'       # projection onto space defined by x1
+  x2o  <- (Id-P) %*% Xctr[ , 2]                 # x2ctr made orthogonal to x1ctr
+  Xc2  <- cbind(Xctr[ , 1], x2o)                # bind to matrix
+  Y    <- Xc2 %*% diag(1/sqrt(colSums(Xc2^2)))  # scale columns to length 1
+  x <- Y[ , 2] + (1 / tan(theta)) * Y[ , 1]     # final new vector
+  cor(x1, x)                                    # check correlation = rho
+  x1<- (x1-mean(x1))/sd(x1)
+  x<- (x-mean(x))/sd(x)
+
+  noise <- rnorm(n,mean  = 0, sd = 10)  
+  dat <- cbind(x1, x)  %>% 
+    as.data.frame() %>% 
+    rename(x2 = x)  %>%
+    mutate(y = beta[1]*x1 + beta[2]*x2 + noise)
+  return(dat)
+}
+
+PlotSingleRun <- function(lin,rho){
+  
+  beta_null = lin$beta_null 
+  lambda = lin$lambda 
+  chiqt = lin$chiqt
+  theta = lin$theta
+  beta1_critval = lin$beta1_critval  
+  beta2_critval = lin$beta2_critval 
+  beta_hat = lin$beta_hat
+  
+  shift_len <- (max(beta1_critval) - min(beta1_critval))/10
+  
+  p <- ggplot() + 
+    theme_linedraw() +
+    geom_ellipse(aes(x0 = beta_null[1], y0 = beta_null[2], 
+                     a = sqrt(lambda[1]*chiqt), 
+                     b = sqrt(lambda[2]*chiqt), angle = theta)) + 
+    geom_hline(yintercept = beta2_critval[1], colour = "blue", linetype='dotted') +
+    geom_hline(yintercept = beta2_critval[2], colour = "blue", linetype='dotted') +
+    geom_vline(xintercept = beta1_critval[1], colour = "blue", linetype='dotted') +
+    geom_vline(xintercept = beta1_critval[2], colour = "blue", linetype='dotted') +
+    annotate("rect", 
+             xmin = beta1_critval[1], xmax = beta1_critval[2], 
+             ymin = beta2_critval[1], ymax = beta2_critval[2],   
+             alpha = .2, color="blue",fill = NA)+ 
+    annotate("point", x = beta_hat[2], y = beta_hat[3], colour = "black") +
+    annotate("text", x=beta_hat[2]+shift_len, y=beta_hat[3], 
+             label=TeX('$(\\hat{\\beta}_1, \\hat{\\beta}_2)$', output='character'),  parse=TRUE ) +
+    annotate("text", x=beta_null[1]+shift_len, y=beta_null[2]+shift_len, 
+             label=TeX("$(\\beta_1^0, \\beta_2^0$)", output='character'), parse=TRUE) +
+    annotate("point", x = beta_null[1], y = beta_null[2], colour = "black") +
+    labs(x = TeX("$\\beta_1$"), y =TeX("$\\beta_2$"),
+         title = paste0("Acceptance regions. Correlation: ",rho)) + 
+    theme(aspect.ratio = 1) 
+    return(p)
+}
+
+EstimateLinearRegression <- function(dat,beta_null)
+{
+  lr <- lm(y ~ x1+x2, data = dat)
+  lr_sum <- summary(lr)
+  
+  y <- dat$y  
+  X <- as.matrix(cbind(rep(1,nrow(dat)), dat[,c("x1","x2")]))
+  
+  beta_hat <- as.numeric(solve(t(X)%*%X)%*%t(X) %*%y)
+  resid <- y-X %*%beta_hat
+  sigma_sq_hat <- as.numeric((t(resid) %*% resid)/(n-(2+1)))  
+  beta_sd <- sqrt(diag(sigma_sq_hat*solve(t(X) %*%X)))
+  
+  x <- sigma_sq_hat*solve(t(X) %*% X)[2:3, 2:3]
+  lambda <- svd(x)$d
+  theta <- atan2(lambda[1] -x[1,1],x[1,2] )
+  
+  #confidence regions
+  chiqt <- qchisq(0.95, df = 2)
+  t_value <- qt(0.975, n-(2+1)) #2 sided t-test confidence interval 
+  beta1_critval <- c(beta_null[1] - t_value*beta_sd[2], 
+                     beta_null[1] + t_value*beta_sd[2])
+  beta2_critval <- c(beta_null[2] - t_value*beta_sd[3],
+                     beta_null[2] + t_value*beta_sd[3])
+  
+  return(list(beta_null = beta_null, lambda = lambda, 
+              chiqt = chiqt, theta = theta, 
+              beta1_critval = beta1_critval,  
+              beta2_critval = beta2_critval,  
+              beta_hat = beta_hat))
+}
+```
+
+```{r, message=FALSE, warning = FALSE,fig.show='hide'}
+#Acceptance regions
+rho <- 0.9
+set.seed(2)
+dat <- GenerateData(beta,rho,n)
+lin_reg <- EstimateLinearRegression(dat,beta_null)
+
+p <- PlotSingleRun(lin_reg,rho)
+p + ggsave(paste0("docs/assets/Acceptance_Regions_Ftest_ttest_correlation_",
+    as.integer(rho*100),"_for_single_plot.svg"),
+    height = 5, width = 5, dpi = 100 )
+```
+
+```{r, class.source = 'fold-hide', out.width="60%", fig.cap="Acceptance regions of F-test (black) and two t-tests (blue) for a regression with 2 explanatory variables with 90% correlation"}
+knitr::include_graphics(paste0(
+    "assets/Acceptance_Regions_Ftest_ttest_correlation_",
+    as.integer(rho*100),"_for_single_plot.svg"), error = FALSE)
+
+```
+
+The point $(\hat{\beta}_1, \hat{\beta}_2)$ is outside of the 95\% ellipse of the F-test but inside of the rectangle that is the intersection of the 95\% non-rejection intervals of both individual t-tests. These regions are derived below.  
+
+
+# The variance of the parameter estimates
+
+The linear regression model is given as 
+
+$$y_i = \beta_0 + \beta_1 x_{i1} + \ldots + \beta_p x_{ip} + \epsilon_i $$
+
+or in matrix notation 
+
+$$ \matr{y} = \matr{X\hat{\beta}} + \matr{\epsilon}.  $$
+
+It is assumed that $\epsilon_i \sim N(0,\sigma^2) \ \forall i$. This assumption ensures that the parameters are not only the best linear unbiased estimators (BLUE) according to the Gauss-Markov Theorem. The assumption ensures that the parameters are the best unbiased estimators (BUE). This is of practical relevance for the estimation of the variances of the estimated parameters and the significance tests that are applied.  
+
+For any statistical significance test of the model's parameters the variance of  $\matr{\hat{\beta}}$ needs to be estimated: 
+
+\begin{equation*} 
+\begin{split}
+\matr{\hat{\beta}}& = (\matr{X}^T\matr{X})^{-1}\matr{X}^T \matr{y} \\
+& = (\matr{X}^T\matr{X})^{-1}\matr{X}^T (\matr{X\hat{\beta}} + \matr{\epsilon} ) \\
+& = (\matr{X}^T\matr{X})^{-1}\matr{X}^T \matr{X\hat{\beta}} + (\matr{X}^T\matr{X})^{-1}\matr{X}^T\matr{\epsilon}  \\
+& = \matr{I\hat{\beta}} + (\matr{X}^T\matr{X})^{-1}\matr{X}^T\matr{\epsilon}  \\
+& = \matr{\hat{\beta}} + (\matr{X}^T\matr{X})^{-1}\matr{X}^T\matr{\epsilon}  
+\end{split}
+\end{equation*}
+
+The conditional variance of the parameters $\matr{\hat{\beta}}$ is derived using the calculation rules for linear transformations of random variables. For the scalar random variable $X$ and the constants $a,b$ it follows $Var[aX+b] = a^2Var[X]$. For random vector $\epsilon$ and constant matrices $\matr{C}, \matr{V}$ this rule extends to 
+
+$$Var[\matr{C}\epsilon+\matr{D}] = \matr{C}Var[\epsilon]\matr{C}^T = \matr{C}\matr{\Sigma}_{\epsilon}\matr{C}^T  $$
+
+Using this rule it follows that: 
+
+\begin{equation*} 
+\begin{split}
+Var[ \matr{\hat{\beta}}| \matr{X}] &= Var[ \matr{\beta}| \matr{X}] + Var[(\matr{X}^T\matr{X})^{-1}\matr{X}^T\matr{\epsilon}|\matr{X}]\\
+&=(\matr{X}^T\matr{X})^{-1}\matr{X}^TVar[\matr{\epsilon}] ((\matr{X}^T\matr{X})^{-1}\matr{X}^T)^T \\
+&=(\matr{X}^T\matr{X})^{-1}\matr{X}^TVar[\matr{\epsilon}] \matr{X}(\matr{X}^T\matr{X})^{-1} \\
+&=(\matr{X}^T\matr{X})^{-1}\matr{X}^T \matr{\sigma}^2 \matr{I} \matr{X}(\matr{X}^T\matr{X})^{-1} \\ 
+&=\matr{\sigma}^2 \matr{I}  (\matr{X}^T\matr{X})^{-1}\matr{X}^T \matr{X}(\matr{X}^T\matr{X})^{-1} \\ 
+&=\matr{\sigma}^2 (\matr{X}^T\matr{X})^{-1} \\ 
+\end{split}
+\end{equation*}
+
+Since the residual variance $\matr{\sigma}^2$ is unknown its unbiased estimator is defined as 
+
+$$\hat{\sigma}^2 = \frac{\matr{\epsilon}^T \matr{\epsilon}}{n-(p+1)} $$
+
+with 
+
+$$ \matr{\epsilon}^T \matr{\epsilon} = (\matr{y} - \matr{X\hat{\beta}} )^T(\matr{y} - \matr{X\hat{\beta}} ) $$
+
+
+The estimated standard error of the parameter estimate $\hat{\beta_i}$ is denoted as $\widehat{s.e.}(\hat{\beta_i})$: 
+
+$$\widehat{s.e.}(\hat{\beta_i})  = \sqrt{\hat{\sigma}^2 (\matr{X}^T\matr{X})^{-1}_{ii}}$$
+
+where $ii$ denotes the $i$-th diagonal component of the inverse covariance matrix of $\matr{X}$. This gives the distribution of $\hat{\beta_i}$ as
+
+\begin{equation}  
+\frac{\hat{\beta_i} - \beta_i}{\widehat{s.e.}(\hat{\beta_i})} \sim t_{n-p-1} 
+\end{equation}
+
+for $n$ independent observations.
+
+
+
+# Acceptance Hyperrectangles
+
+Expanding the equation above gives the acceptance interval
+
+\begin{equation}                    
+A_i(\alpha) = \left[\hat{\beta_i} - d_i \ , \hat{\beta_i} + d_i \right].
+\end{equation}
+
+with $d = \widehat{s.e.}(\hat{\beta_i}) t_{n-p-1, \alpha /2}$ and $P(\beta_i \in A_i(\alpha)) = 1- \alpha$. Extending $A_i(\alpha)$ to the multidimensional case with the parameter indices to be tested in the set $S \subseteq \{0,1, \ldots, p\}$  gives a hyperrectangle 
+
+$$ R =\times_{i \in S} C_i(\alpha)  =\times_{i \in S} \left[\hat{\beta_i} - d_i \ , \hat{\beta_i} + d_i \right]$$
+
+In the two dimensional case the two individual confidence intervals for the parameters $\beta_i$ and $\beta_j$ have the properties $P(\beta_i \in A_i(\alpha)) = 1- \alpha$ and $P(\beta_j \in A_j(\alpha)) = 1- \alpha$. These properties do not hold for $R$. If both estimators are independent and therefore have 0 covariance the probability of the point $(\hat{\beta_i}, \hat{\beta_j})$ to be in the rectangle $R(\alpha)$ is 
+
+$$P(\beta_i \in A_i(\alpha) \ \wedge \ \beta_j \in A_j(\alpha)) = P(\beta_i \in A_i(\alpha)) \times P(\beta_j \in A_j(\alpha)) =  (1- \alpha)^2.$$
+
+This observation resembles the multiple testing of different null hypotheses. In this context the Bonferroni correction is applied. If $m$ hypotheses are tested the combined $\alpha$ level for $R(\alpha)$ is ensured by using $\frac{\alpha}{m}$: 
+
+$$ R(\alpha) =\times_{i \in S} A_i\left(\frac{\alpha}{m}\right)  $$
+
+Below, I do not further follow this argument and use $R$ for two reasons: First, I focus on the illustration of test results in the case of correlated estimators. $R(\alpha)$ and $R$ are calculated under the assumption of no correlation. Second, the acceptance regions are larger when a correction is applied $(R \subseteq R(\alpha))$. This means that rejecting the null hypotheses for $R(\alpha)$ is  more unlikely than for $R$. The analysis of $R$ is therefore sufficient. 
+
+
+
+# Acceptance Ellipsoids
+
+If the standard deviation of the estimators was known we had standard normally distributed values
+
+\begin{equation*}  
+\frac{\hat{\beta_i} - \beta_i^0}{s.e.(\hat{\beta_i})} \sim N(0,1) 
+\end{equation*}
+
+and the squared sum of those values was $\chi^2$ distributed. For the two dimensional case with two uncorrelated parameter estimates  $\hat{\beta_i}$ and $\hat{\beta_j}$ we have: 
+
+
+\begin{equation*}  
+\left(\frac{\hat{\beta_i} - \beta_i^0}{s.e.(\hat{\beta_i})} \right)^2 +
+\left(\frac{\hat{\beta_j} - \beta_j^0}{s.e.(\hat{\beta_j})} \right)^2  \sim \chi^2_2
+\end{equation*}
+
+This gives an ellipse with axes parallel to the coordinate axes and the diameters along each axes $2s.e.(\hat{\beta_j})\chi^2_{2,1-\alpha}$. It follows that the $1-\alpha$ acceptance region for $k = |S|$ uncorreleated coefficients is an ellipsoid
+
+$$\sum_{i \in S} \left(\frac{\hat{\beta_i} - \beta_i^0}{s.e.(\hat{\beta_i})} \right)^2  \leq \chi^2_{k,1-\alpha}$$
+
+In the case that the standard deviation is unknown and needs to be estimated from the data, $s.e.(\hat{\beta_i})$ is used and $\chi^2_{k,1-\alpha}$ is replaced by $F_{k,n-p-1}^{1-\alpha}$. If the estimators have covariances $\neq 0$ its covariance matrix $\matr{\Sigma} =  \matr{\sigma}^2 (\matr{X}^T\matr{X})^{-1}$ is used to find the parameters of the ellipsoid. In the two dimensional case the lenghts of axis $i$ are depending on the singular values of the covariance matrix and the critical test value of the $\chi^2$ distribution: 
+
+$$\sqrt{\lambda_i\chi^2_{k,1-\alpha}}$$
+
+The rotation of the ellipse is calculated as 
+
+$$\atantwo (\lambda_1 - \matr{\Sigma}_{11}, \matr{\Sigma}_{12})$$
+
+
+# The effect of correlation on differences between t-tests and F-Tests
+
+In the 4 plots below data for a linear regression model with two explanatory variables are simulated:
+
+$$y_i = \beta_0 + \beta_1 x_{i1} + \beta_2 x_{i2} + \epsilon_i $$
+
+The number of simulated observations is $n = 500$, i.e. $i = 1, \ldots, 500$. The empirical correlation between $\matr{x}_1$ and $\matr{x}_2$ is chosen from the four values 0, 0.5, 0.9 and 0.99. The plots illustrate that the differences between t-tests and F-Tests exist for any correlation value and increse when the correlation deviates from 0. 
+
+```{r, message=FALSE, warning = FALSE,fig.show='hide'}
+rhos <- c(0,0.5,0.9,0.99)
+plot_list = list()
+for (i in seq_along(rhos))
+{
+  rho <- rhos[i]
+  set.seed(6)
+  dat <- GenerateData(beta,rho,n)
+  lin_reg <- EstimateLinearRegression(dat,beta_null)
+
+  p <- PlotSingleRun(lin_reg,rho)  
+  
+  plot_list[[i]] <- paste0("assets/Acceptance_Regions_Ftest_ttest_correlation_",
+      as.integer(rho*100),"_for_grid_plot.svg")
+  p + ggsave(paste0("docs/",plot_list[[i]]),
+      height = 5, width = 5, dpi = 100 )  
+}  
+
+```
+
+
+```{r,out.width="49%",out.height="49%",fig.show='hold',fig.align='center', fig.cap="Acceptance regions of F-tests (black) and t-tests (blue) for 4 linear regressions each with 2 explanatory variables with correlation of 0, 0.5, 0.9 and 0.99 respectively"}
+knitr::include_graphics(c(plot_list[[1]],plot_list[[2]]), error = FALSE)
+knitr::include_graphics(c(plot_list[[3]],plot_list[[4]]), error = FALSE)
+```
+
+
+In the plot above one dataset is simulated for each of the four correlation values. In the plot below 1000 different datasets are simulated for each of the four empirical  correlations (0, 0.5, 0.9 and 0.99) between $\matr{x}_1$ and $\matr{x}_2$. The point estimates $(\hat{\beta_1},  \hat{\beta_2})$ are plotted. Note that the acceptance regions are not plotted because these are different for each run, e.g. there would be 2000 acceptance bands/rectangles for the t-tests and 2000 acceptance ellipses on each of the four subplots. The point here is to illustrate the effect of correlation between $\matr{x}_1$ and $\matr{x}_2$ on the estimates. 
+
+
+```{r}
+PlotMultipleRuns <- function(result,rho,sim_runs)
+{
+  p <- result %>%
+    ggplot(aes(x = beta_hat_1,y = beta_hat_2)) +
+    theme_linedraw(base_size = 16) +
+    geom_point(alpha = 0.35) +
+    labs(x = TeX("$\\hat{\\beta}_1$"), y =TeX("$\\hat{\\beta}_2$"),
+         title = paste0(sim_runs, " simulation runs with correlation ",rho)) 
+  
+  #ggsave does not work with ggMarginal
+  png(paste0("docs/assets/Simulation_correlation_", as.integer(rho*100),".png"), 
+      height = 500, width = 500,antialias = "cleartype")
+  print({
+    ggMarginal(p, type = "density")
+  })
+  dev.off()   
+}
+
+
+#Simulated parameter estimates
+sim_runs <- 2000
+plot_list2 <- list()
+rhos <- c(0,0.5,0.9,0.99)
+for (i in seq_along(rhos))
+{
+  result <-data.frame(
+    beta_hat_1 = rep(NA,sim_runs),
+    beta_hat_2 = rep(NA,sim_runs)
+  )
+  for (j in seq_len(sim_runs))
+  {
+    rho <- rhos[i]
+    set.seed(j)
+    dat <- GenerateData(beta,rho,n)
+    lin_reg <- EstimateLinearRegression(dat,beta_null)
+    result[j,c("beta_hat_1","beta_hat_2")] <- lin_reg$beta_hat[2:3]
+  }
+  plot_list2[[i]] <- paste0("assets/Simulation_correlation_", 
+                            as.integer(rho*100),".png")
+  PlotMultipleRuns(result,rho,sim_runs)
+}  
+
+```
+
+
+```{r,out.width="49%",out.height="49%",fig.show='hold',fig.align='center', fig.cap="Results of 2000 simulations with 4 different values of correlations between the 2 explanatory variables"}
+knitr::include_graphics(c(plot_list2[[1]],plot_list2[[2]]), error = FALSE)
+knitr::include_graphics(c(plot_list2[[3]],plot_list2[[4]]), error = FALSE)
+```
+
+Results of 2000 simulations and their point estimates $(\hat{\beta_1},  \hat{\beta_2})$  for four different correlation values of the explanatory variables $x_1$ and $x_2$. The marginal distributions are Gaussian in all four cases.
+
+
+# Confidence regions are not acceptance regions
+
+In the discussion above I referred to acceptance regions instead of confidence regions. Acceptance regions are constructed around the parameter values of the null hypotheses. Confidence regions are constructed around the parameter estimates of each observed random sample. This means that for each sample not only the parameter estimates will be different but also the confidence bands/rectangles and confidence ellipses. This is illustrated in the plot below for 50 simulation runs for a correlation of the explanatory variables $x_1$ and $x_2$ of 0.9. 
+
+```{r,fig.show='hide'}
+#Confidence regions
+sim_runs <- 50
+rho <- 0.9
+result <- list()
+for (j in seq_len(sim_runs))
+{
+  set.seed(j)
+  dat <- GenerateData(beta,rho,n)
+  lin_reg <- EstimateLinearRegression(dat,beta_null)
+  result[[j]] <- lin_reg
+}
+
+PlotConfidenceRegions <- function(res, beta){
+  
+  sim_runs <- length(res)
+  p <- ggplot() + 
+          theme_linedraw() +
+          coord_fixed( xlim = c(-6,6), ylim = c(-6,6))
+  
+  invisible(lapply(
+    1:sim_runs,
+    function(i) p <<- p + geom_ellipse(aes(x0 = res[[i]]$beta_hat[2], 
+                             y0 = res[[i]]$beta_hat[3], 
+                             a = sqrt(res[[i]]$lambda[1]*res[[i]]$chiqt), 
+                             b = sqrt(res[[i]]$lambda[2]*res[[i]]$chiqt),
+                             angle = res[[i]]$theta)
+    )
+  ))
+  p <- p +
+    annotate("point", x = beta[1], y = beta[2], colour = "red") +
+    labs(x = TeX("$\\beta_1$"), y =TeX("$\\beta_2$"),
+         title = paste0("Confidence ellipses of ",
+                        sim_runs ," simulated data sets"), 
+         subtitle = TeX(paste0("The true values: ", sprintf(" $\\beta_1 = %2.1f$",
+                               beta[1]) ,", " ,sprintf(" $\\beta_2 = %2.1f$",
+                               beta[2])))
+         
+    ) 
+  
+  p +  ggsave(paste0("docs/assets/Confidence_ellipses.svg") , dpi = 100, 
+                height = 5, width = 5)  
+}
+
+PlotConfidenceRegions(result, beta)
+```
+
+
+
+```{r, class.source = 'fold-hide', out.width="60%", fig.cap="Acceptance regions of F-test (black) and t-test (blue) for a regression with 2 explanatory variables with 90% correlation"}
+knitr::include_graphics(paste0("assets/Confidence_ellipses.svg"), error = FALSE)
+```
+
+
+
+
+
+
+
+

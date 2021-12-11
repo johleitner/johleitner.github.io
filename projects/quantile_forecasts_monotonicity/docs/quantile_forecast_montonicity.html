@@ -1,0 +1,1360 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+
+<meta name="author" content="Johannes Leitner" />
+
+
+<title>Monotonicity of quantile forecasts</title>
+
+<script src="site_libs/jquery-1.11.3/jquery.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link href="site_libs/bootstrap-3.3.5/css/cosmo.min.css" rel="stylesheet" />
+<script src="site_libs/bootstrap-3.3.5/js/bootstrap.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/html5shiv.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/respond.min.js"></script>
+<script src="site_libs/jqueryui-1.11.4/jquery-ui.min.js"></script>
+<link href="site_libs/tocify-1.9.1/jquery.tocify.css" rel="stylesheet" />
+<script src="site_libs/tocify-1.9.1/jquery.tocify.js"></script>
+<script src="site_libs/navigation-1.1/tabsets.js"></script>
+<script src="site_libs/navigation-1.1/codefolding.js"></script>
+<link href="site_libs/highlightjs-9.12.0/textmate.css" rel="stylesheet" />
+<script src="site_libs/highlightjs-9.12.0/highlight.js"></script>
+
+<link rel="icon" href="https://github.com/workflowr/workflowr-assets/raw/master/img/reproducible.png">
+<!-- Add a small amount of space between sections. -->
+<style type="text/css">
+div.section {
+  padding-top: 12px;
+}
+</style>
+
+<style type="text/css">
+  code{white-space: pre-wrap;}
+  span.smallcaps{font-variant: small-caps;}
+  span.underline{text-decoration: underline;}
+  div.column{display: inline-block; vertical-align: top; width: 50%;}
+  div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+  ul.task-list{list-style: none;}
+    </style>
+
+<style type="text/css">code{white-space: pre;}</style>
+<style type="text/css">
+  pre:not([class]) {
+    background-color: white;
+  }
+</style>
+<script type="text/javascript">
+if (window.hljs) {
+  hljs.configure({languages: []});
+  hljs.initHighlightingOnLoad();
+  if (document.readyState && document.readyState === "complete") {
+    window.setTimeout(function() { hljs.initHighlighting(); }, 0);
+  }
+}
+</script>
+
+
+
+<style type="text/css">
+h1 {
+  font-size: 34px;
+}
+h1.title {
+  font-size: 38px;
+}
+h2 {
+  font-size: 30px;
+}
+h3 {
+  font-size: 24px;
+}
+h4 {
+  font-size: 18px;
+}
+h5 {
+  font-size: 16px;
+}
+h6 {
+  font-size: 12px;
+}
+.table th:not([align]) {
+  text-align: left;
+}
+</style>
+
+
+
+
+
+<style type = "text/css">
+.main-container {
+  max-width: 940px;
+  margin-left: auto;
+  margin-right: auto;
+}
+code {
+  color: inherit;
+  background-color: rgba(0, 0, 0, 0.04);
+}
+img {
+  max-width:100%;
+}
+.tabbed-pane {
+  padding-top: 12px;
+}
+.html-widget {
+  margin-bottom: 20px;
+}
+button.code-folding-btn:focus {
+  outline: none;
+}
+summary {
+  display: list-item;
+}
+</style>
+
+
+<style type="text/css">
+/* padding for bootstrap navbar */
+body {
+  padding-top: 51px;
+  padding-bottom: 40px;
+}
+/* offset scroll position for anchor links (for fixed navbar)  */
+.section h1 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h2 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h3 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h4 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h5 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h6 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.dropdown-submenu {
+  position: relative;
+}
+.dropdown-submenu>.dropdown-menu {
+  top: 0;
+  left: 100%;
+  margin-top: -6px;
+  margin-left: -1px;
+  border-radius: 0 6px 6px 6px;
+}
+.dropdown-submenu:hover>.dropdown-menu {
+  display: block;
+}
+.dropdown-submenu>a:after {
+  display: block;
+  content: " ";
+  float: right;
+  width: 0;
+  height: 0;
+  border-color: transparent;
+  border-style: solid;
+  border-width: 5px 0 5px 5px;
+  border-left-color: #cccccc;
+  margin-top: 5px;
+  margin-right: -10px;
+}
+.dropdown-submenu:hover>a:after {
+  border-left-color: #ffffff;
+}
+.dropdown-submenu.pull-left {
+  float: none;
+}
+.dropdown-submenu.pull-left>.dropdown-menu {
+  left: -100%;
+  margin-left: 10px;
+  border-radius: 6px 0 6px 6px;
+}
+</style>
+
+<script>
+// manage active state of menu based on current page
+$(document).ready(function () {
+  // active menu anchor
+  href = window.location.pathname
+  href = href.substr(href.lastIndexOf('/') + 1)
+  if (href === "")
+    href = "index.html";
+  var menuAnchor = $('a[href="' + href + '"]');
+
+  // mark it active
+  menuAnchor.parent().addClass('active');
+
+  // if it's got a parent navbar menu mark it active as well
+  menuAnchor.closest('li.dropdown').addClass('active');
+});
+</script>
+
+<!-- tabsets -->
+
+<style type="text/css">
+.tabset-dropdown > .nav-tabs {
+  display: inline-table;
+  max-height: 500px;
+  min-height: 44px;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs > li.active:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li.active:before {
+  content: "&#xe258;";
+  border: none;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs > li.active {
+  display: block;
+}
+
+.tabset-dropdown > .nav-tabs > li > a,
+.tabset-dropdown > .nav-tabs > li > a:focus,
+.tabset-dropdown > .nav-tabs > li > a:hover {
+  border: none;
+  display: inline-block;
+  border-radius: 4px;
+  background-color: transparent;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li {
+  display: block;
+  float: none;
+}
+
+.tabset-dropdown > .nav-tabs > li {
+  display: none;
+}
+</style>
+
+<!-- code folding -->
+<style type="text/css">
+.code-folding-btn { margin-bottom: 4px; }
+</style>
+
+
+
+<style type="text/css">
+
+#TOC {
+  margin: 25px 0px 20px 0px;
+}
+@media (max-width: 768px) {
+#TOC {
+  position: relative;
+  width: 100%;
+}
+}
+
+@media print {
+.toc-content {
+  /* see https://github.com/w3c/csswg-drafts/issues/4434 */
+  float: right;
+}
+}
+
+.toc-content {
+  padding-left: 30px;
+  padding-right: 40px;
+}
+
+div.main-container {
+  max-width: 1200px;
+}
+
+div.tocify {
+  width: 20%;
+  max-width: 260px;
+  max-height: 85%;
+}
+
+@media (min-width: 768px) and (max-width: 991px) {
+  div.tocify {
+    width: 25%;
+  }
+}
+
+@media (max-width: 767px) {
+  div.tocify {
+    width: 100%;
+    max-width: none;
+  }
+}
+
+.tocify ul, .tocify li {
+  line-height: 20px;
+}
+
+.tocify-subheader .tocify-item {
+  font-size: 0.90em;
+}
+
+.tocify .list-group-item {
+  border-radius: 0px;
+}
+
+
+</style>
+
+
+
+</head>
+
+<body>
+
+
+<div class="container-fluid main-container">
+
+
+<!-- setup 3col/9col grid for toc_float and main content  -->
+<div class="row-fluid">
+<div class="col-xs-12 col-sm-4 col-md-3">
+<div id="TOC" class="tocify">
+</div>
+</div>
+
+<div class="toc-content col-xs-12 col-sm-8 col-md-9">
+
+
+
+
+<div class="navbar navbar-default  navbar-fixed-top" role="navigation">
+  <div class="container">
+    <div class="navbar-header">
+      <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar">
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+      <a class="navbar-brand">Monotonicity of quantile forecasts</a>
+    </div>
+    <div id="navbar" class="navbar-collapse collapse">
+      <ul class="nav navbar-nav">
+        <li>
+  <a href="../../../index.html">Home</a>
+</li>
+
+      </ul>
+      <ul class="nav navbar-nav navbar-right">
+        
+      </ul>
+    </div><!--/.nav-collapse -->
+  </div><!--/.container -->
+</div><!--/.navbar -->
+
+<div class="fluid-row" id="header">
+
+<div class="btn-group pull-right">
+<button type="button" class="btn btn-default btn-xs dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"><span>Code</span> <span class="caret"></span></button>
+<ul class="dropdown-menu" style="min-width: 50px;">
+<li><a id="rmd-show-all-code" href="#">Show All Code</a></li>
+<li><a id="rmd-hide-all-code" href="#">Hide All Code</a></li>
+</ul>
+</div>
+
+
+
+<h1 class="title toc-ignore">Monotonicity of quantile forecasts</h1>
+<h4 class="author">Johannes Leitner</h4>
+
+</div>
+
+
+<p>
+<button type="button" class="btn btn-default btn-workflowr btn-workflowr-report" data-toggle="collapse" data-target="#workflowr-report">
+<span class="glyphicon glyphicon-list" aria-hidden="true"></span> workflowr <span class="glyphicon glyphicon-exclamation-sign text-danger" aria-hidden="true"></span>
+</button>
+</p>
+<div id="workflowr-report" class="collapse">
+<ul class="nav nav-tabs">
+<li class="active">
+<a data-toggle="tab" href="#summary">Summary</a>
+</li>
+<li>
+<a data-toggle="tab" href="#checks"> Checks <span class="glyphicon glyphicon-exclamation-sign text-danger" aria-hidden="true"></span> </a>
+</li>
+<li>
+<a data-toggle="tab" href="#versions">Past versions</a>
+</li>
+</ul>
+<div class="tab-content">
+<div id="summary" class="tab-pane fade in active">
+<p>
+<strong>Last updated:</strong> 2021-12-11
+</p>
+<p>
+<strong>Checks:</strong> <span class="glyphicon glyphicon-ok text-success" aria-hidden="true"></span> 6 <span class="glyphicon glyphicon-exclamation-sign text-danger" aria-hidden="true"></span> 1
+</p>
+<p>
+<strong>Knit directory:</strong> <code>quantile_forecasts_monotonicity/</code> <span class="glyphicon glyphicon-question-sign" aria-hidden="true" title="This is the local directory in which the code in this file was executed."> </span>
+</p>
+<p>
+This reproducible <a href="http://rmarkdown.rstudio.com">R Markdown</a> analysis was created with <a
+  href="https://github.com/jdblischak/workflowr">workflowr</a> (version 1.6.2). The <em>Checks</em> tab describes the reproducibility checks that were applied when the results were created. The <em>Past versions</em> tab lists the development history.
+</p>
+<hr>
+</div>
+<div id="checks" class="tab-pane fade">
+<div id="workflowr-checks" class="panel-group">
+<div class="panel panel-default">
+<div class="panel-heading">
+<p class="panel-title">
+<a data-toggle="collapse" data-parent="#workflowr-checks" href="#strongRMarkdownfilestronguncommittedchanges"> <span class="glyphicon glyphicon-exclamation-sign text-danger" aria-hidden="true"></span> <strong>R Markdown file:</strong> uncommitted changes </a>
+</p>
+</div>
+<div id="strongRMarkdownfilestronguncommittedchanges" class="panel-collapse collapse">
+<div class="panel-body">
+<p>The R Markdown is untracked by Git. To know which version of the R Markdown file created these results, you’ll want to first commit it to the Git repo. If you’re still working on the analysis, you can ignore this warning. When you’re finished, you can run <code>wflow_publish</code> to commit the R Markdown file and build the HTML.</p>
+</div>
+</div>
+</div>
+<div class="panel panel-default">
+<div class="panel-heading">
+<p class="panel-title">
+<a data-toggle="collapse" data-parent="#workflowr-checks" href="#strongEnvironmentstrongempty"> <span class="glyphicon glyphicon-ok text-success" aria-hidden="true"></span> <strong>Environment:</strong> empty </a>
+</p>
+</div>
+<div id="strongEnvironmentstrongempty" class="panel-collapse collapse">
+<div class="panel-body">
+<p>Great job! The global environment was empty. Objects defined in the global environment can affect the analysis in your R Markdown file in unknown ways. For reproduciblity it’s best to always run the code in an empty environment.</p>
+</div>
+</div>
+</div>
+<div class="panel panel-default">
+<div class="panel-heading">
+<p class="panel-title">
+<a data-toggle="collapse" data-parent="#workflowr-checks" href="#strongSeedstrongcodesetseed20211209code"> <span class="glyphicon glyphicon-ok text-success" aria-hidden="true"></span> <strong>Seed:</strong> <code>set.seed(20211209)</code> </a>
+</p>
+</div>
+<div id="strongSeedstrongcodesetseed20211209code" class="panel-collapse collapse">
+<div class="panel-body">
+<p>The command <code>set.seed(20211209)</code> was run prior to running the code in the R Markdown file. Setting a seed ensures that any results that rely on randomness, e.g. subsampling or permutations, are reproducible.</p>
+</div>
+</div>
+</div>
+<div class="panel panel-default">
+<div class="panel-heading">
+<p class="panel-title">
+<a data-toggle="collapse" data-parent="#workflowr-checks" href="#strongSessioninformationstrongrecorded"> <span class="glyphicon glyphicon-ok text-success" aria-hidden="true"></span> <strong>Session information:</strong> recorded </a>
+</p>
+</div>
+<div id="strongSessioninformationstrongrecorded" class="panel-collapse collapse">
+<div class="panel-body">
+<p>Great job! Recording the operating system, R version, and package versions is critical for reproducibility.</p>
+</div>
+</div>
+</div>
+<div class="panel panel-default">
+<div class="panel-heading">
+<p class="panel-title">
+<a data-toggle="collapse" data-parent="#workflowr-checks" href="#strongCachestrongnone"> <span class="glyphicon glyphicon-ok text-success" aria-hidden="true"></span> <strong>Cache:</strong> none </a>
+</p>
+</div>
+<div id="strongCachestrongnone" class="panel-collapse collapse">
+<div class="panel-body">
+<p>Nice! There were no cached chunks for this analysis, so you can be confident that you successfully produced the results during this run.</p>
+</div>
+</div>
+</div>
+<div class="panel panel-default">
+<div class="panel-heading">
+<p class="panel-title">
+<a data-toggle="collapse" data-parent="#workflowr-checks" href="#strongFilepathsstrongrelative"> <span class="glyphicon glyphicon-ok text-success" aria-hidden="true"></span> <strong>File paths:</strong> relative </a>
+</p>
+</div>
+<div id="strongFilepathsstrongrelative" class="panel-collapse collapse">
+<div class="panel-body">
+<p>Great job! Using relative paths to the files within your workflowr project makes it easier to run your code on other machines.</p>
+</div>
+</div>
+</div>
+<div class="panel panel-default">
+<div class="panel-heading">
+<p class="panel-title">
+<a data-toggle="collapse" data-parent="#workflowr-checks" href="#strongRepositoryversionstrong69a07a5"> <span class="glyphicon glyphicon-ok text-success" aria-hidden="true"></span> <strong>Repository version:</strong> 69a07a5 </a>
+</p>
+</div>
+<div id="strongRepositoryversionstrong69a07a5" class="panel-collapse collapse">
+<div class="panel-body">
+<p>
+Great! You are using Git for version control. Tracking code development and connecting the code version to the results is critical for reproducibility.
+</p>
+<p>
+The results in this page were generated with repository version 69a07a5. See the <em>Past versions</em> tab to see a history of the changes made to the R Markdown and HTML files.
+</p>
+<p>
+Note that you need to be careful to ensure that all relevant files for the analysis have been committed to Git prior to generating the results (you can use <code>wflow_publish</code> or <code>wflow_git_commit</code>). workflowr only checks the R Markdown file, but you know if there are other scripts or data files that it depends on. Below is the status of the Git repository when the results were generated:
+</p>
+<pre><code>
+Ignored files:
+    Ignored:    .Rhistory
+
+Untracked files:
+    Untracked:  analysis/quantile_forecast_montonicity.Rmd
+    Untracked:  analysis/ref_quantile.bib
+
+Unstaged changes:
+    Modified:   analysis/_site.yml
+
+</code></pre>
+<p>
+Note that any generated files, e.g. HTML, png, CSS, etc., are not included in this status report because it is ok for generated content to have uncommitted changes.
+</p>
+</div>
+</div>
+</div>
+</div>
+<hr>
+</div>
+<div id="versions" class="tab-pane fade">
+<p>
+There are no past versions. Publish this analysis with <code>wflow_publish()</code> to start tracking its development.
+</p>
+<hr>
+</div>
+</div>
+</div>
+
+<div id="highlights" class="section level2">
+<h2>Highlights</h2>
+<ul>
+<li>Many models that generate quantile forecasts suffer from inconsistencies - e.g. the forecast of the 98% quantile is larger than the forecast of the 99% quantile.</li>
+<li>Enforcing monotonicity (and therefore plausibility) of the quantile forecasts comes with a cost, for instance non-intuitive qunatile shapes.</li>
+<li>Several of these models are discussed below. My preference are extremely randomized trees.</li>
+</ul>
+</div>
+<div id="distribution-regression-versus-quantile-regression" class="section level2">
+<h2>Distribution regression versus quantile regression</h2>
+<p>There are two approaches for estimating the conditional distribution of a scalar random variable <span class="math inline">\(X\)</span> given a random vector <span class="math inline">\(Y\)</span> when the available data are a sample from the joint distribution of <span class="math inline">\((X,Y)\)</span>:</p>
+<ul>
+<li>Distributional regression (DR) based on direct estimation of the conditional distribution function (CDF) <span class="math inline">\(F(y|x)=P\{Y=y|X=x\}, y \in \mathbb{R}\)</span></li>
+<li>Quantile regression (QR) based on direct estimation of the conditional quantile function (CQF) <span class="math inline">\(Q(p|x)=\inf\{y \in \mathbb{R}:F(y|x)\geq p\}, p \in (0,1)\)</span></li>
+</ul>
+<p>For a comparison of both approaches see <span class="citation">(Koenker, Leorato, and Peracchi 2013.)</span></p>
+<p>Although, any estimation procedure that directly estimates the CDF or CQF can be included in the DR approach most of the recent literature, the term DR refers to estimation of the functions at a finite number of cutoffs, i.e. the 99 percentiles 1%, 2%,… , 99%.</p>
+</div>
+<div id="definition-of-quantiles" class="section level2">
+<h2>Definition of quantiles</h2>
+<p>R‘s stats::quantile function gives access to 9 different quantile definitions by <span class="citation">(Hyndman and Fan 1996)</span>, who recommend type 8. It gives approximately median-unbiased estimates of <span class="math inline">\(Q(p)\)</span> (see <span class="citation">(Reiss 1989)</span>) regardless of the distribution. R‘s stats::quantile and Python‘s numpy.quantile use type 7 by default.</p>
+<p>Irrespective of the definition for the random variables <span class="math inline">\(X\)</span> and <span class="math inline">\(Y\)</span>: <span class="math display">\[ Q_X(p) + Q_Y(p) \neq Q_{X+Y}(p)\]</span></p>
+<pre class="r"><code>library(quantreg)
+data(engel)
+
+library(tidyverse)
+library(magrittr)
+library(quantregGrowth)
+library(qrnn)
+
+options(java.parameters = &quot;-Xmx2g&quot;)
+library(extraTrees)
+
+options(stringsAsFactors = F)</code></pre>
+<p>The table illustrates the differences of these definitions for 2 discrete random variables:</p>
+<ul>
+<li>The 16.67% quantile of a single die</li>
+<li>The 16.67% quantile of the sum of two dice</li>
+</ul>
+<pre class="r"><code>df &lt;- data.frame(Definition = 1:9,
+                 col1 = 1:9,
+                 col2 = 1:9)
+die &lt;- 1:6
+dies &lt;- c(2,3,3,4,4,4,5,5,5,5,6,6,6,6,6,7,7,7,7,7,7,
+          8,8,8,8,8,9,9,9,9,10,10,10,11,11,12)
+for (i in 1:9)
+{
+  df$col1[i] &lt;- round(quantile(die, probs = 1/6, type = i), 2)
+  df$col2[i] &lt;- round(quantile(dies, probs = 1/6, type = i), 2)
+}
+colnames(df)[1:3] &lt;-
+  c(&quot;Qantile definition #&quot;,&quot;16.7% quantile of fair die&quot;, &quot;16.7% quantile of 2 fair dice&quot;)
+knitr::kable(df, format = &quot;markdown&quot;
+)</code></pre>
+<table>
+<colgroup>
+<col width="26%" />
+<col width="34%" />
+<col width="38%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="right">Qantile definition #</th>
+<th align="right">16.7% quantile of fair die</th>
+<th align="right">16.7% quantile of 2 fair dice</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="right">1</td>
+<td align="right">1.00</td>
+<td align="right">4.00</td>
+</tr>
+<tr class="even">
+<td align="right">2</td>
+<td align="right">1.50</td>
+<td align="right">4.50</td>
+</tr>
+<tr class="odd">
+<td align="right">3</td>
+<td align="right">1.00</td>
+<td align="right">4.00</td>
+</tr>
+<tr class="even">
+<td align="right">4</td>
+<td align="right">1.00</td>
+<td align="right">4.00</td>
+</tr>
+<tr class="odd">
+<td align="right">5</td>
+<td align="right">1.50</td>
+<td align="right">4.50</td>
+</tr>
+<tr class="even">
+<td align="right">6</td>
+<td align="right">1.17</td>
+<td align="right">4.17</td>
+</tr>
+<tr class="odd">
+<td align="right">7</td>
+<td align="right">1.83</td>
+<td align="right">4.83</td>
+</tr>
+<tr class="even">
+<td align="right">8</td>
+<td align="right">1.39</td>
+<td align="right">4.39</td>
+</tr>
+<tr class="odd">
+<td align="right">9</td>
+<td align="right">1.42</td>
+<td align="right">4.42</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="quantile-regression" class="section level2">
+<h2>Quantile regression</h2>
+<p>For the OLS estimation of a linear regression for <span class="math inline">\(k\)</span> explanatory variables we estimate</p>
+<p><span class="math display">\[\hat{\beta} = \underset{\beta \in  \mathbb{R}^k}{\operatorname{argmin}} \sum_{i = 1}^n (y_i-x_i^T\beta)^2\]</span></p>
+<p>In a median regression we estimate <span class="math inline">\(\beta\)</span> that minimizes absolute deviations:</p>
+<p>For the OLS estimation of a linear regression for <span class="math inline">\(k\)</span> explanatory variables we estimate</p>
+<p><span class="math display">\[\hat{\beta} = \underset{\beta \in  \mathbb{R}^k}{\operatorname{argmin}} \sum_{i = 1}^n |y_i-x_i^T\beta|\]</span></p>
+<p>This is a special case of quantile regression for the quantile <span class="math inline">\(\tau \in (0,1)\)</span>:</p>
+<p><span class="math display">\[\hat{\beta_{\tau}} = \underset{\beta \in  \mathbb{R}^k}{\operatorname{argmin}} \sum_{i = 1}^n \rho_{\tau}|y_i-x_i^T\beta|\]</span> where <span class="math inline">\(\rho_{\tau}(x) = x(\tau-\mathbf {1}(x&lt;0))\)</span> and <span class="math inline">\(\mathbf {1}\)</span> denotes the indicator function. Using <span class="math inline">\(w_i = u_i\mathbf {1}(u_i &gt; 0), v_i = |u_i|\mathbf {1}(u_i &lt; 0)\)</span> we can rewrite the optimization problem as a linear program:</p>
+<p><span class="math display">\[\underset{\beta \in  \mathbb{R}^k, \  w,v \in \mathbb{R}^n}{\operatorname{argmin}} \tau \mathbf {1}_n^T w  + (1-\tau) \mathbf {1}_n^T v \]</span> <span class="math display">\[s.t. y- X^T\beta = w-v \]</span> <span class="math display">\[w \geq 0, v \geq 0\]</span></p>
+<p>The objective function for quantile regression is non-differentiable. The function is minimized via the simplex method, which is guaranteed to yield a solution in a finite number of iterations. The method of <span class="citation">(Barrodale and Roberts 1973)</span> has been widely used to minimize the objective. In both the quantreg R package as well as the SAS PROC QUANTREG procedure it is the default method. Other models that use gradient-based methods require an approximation of the loss function, for instance the Huber Loss.</p>
+</div>
+<div id="quantile-crossings" class="section level2">
+<h2>Quantile crossings</h2>
+<pre class="r"><code>#Estimate quantile regression on the complete dataset
+taus &lt;- c(.05, .1, .25, .75, .9, .95)
+x &lt;- seq(min(engel$income), max(engel$income), 100)
+f &lt;- coef(rq((foodexp) ~ (income), tau = taus, data = engel))
+y &lt;- cbind(1, x) %*% f
+dat &lt;- cbind(x, y) %&gt;%
+  data.frame() %&gt;%
+  pivot_longer(!x, names_to = &quot;Quantile&quot;, values_to = &quot;foodexp&quot;) %&gt;%
+  mutate(Quantile = factor(100 * as.numeric(str_sub(Quantile,-4,-1)))) %&gt;%
+  rename(income = x)
+
+p &lt;- ggplot(data = engel, aes(x = income, y = foodexp)) +
+  geom_point(alpha = 0.2) +
+  geom_line(
+    data = dat,
+    size = 1,
+    aes(
+      x = income,
+      y = foodexp,
+      group = Quantile,
+      color = Quantile
+    )
+  ) +
+  labs(title = &quot;Quantile regression on the \&#39;engel\&#39; data set&quot;,
+       x = &quot;Household Income&quot;,
+       y = &quot;Food Expenditure&quot;) +
+  scale_color_brewer(palette = &quot;Paired&quot;) + 
+  theme_bw()
+
+
+p + ggsave(
+  &quot;docs/figure/Quantile_regression_engel_dataset.svg&quot;,
+  height = 7,
+  width = 7,
+  dpi = 100
+)</code></pre>
+<pre class="r"><code>#Extrapolate the estimated model to new data - this causes quantile crossings
+
+taus &lt;- c(.05, .1, .25, .75, .9, .95)
+x &lt;- seq(0, max(engel$income) + 1000, 100)
+f &lt;- coef(rq((foodexp) ~ (income), tau = taus, data = engel))
+y &lt;- cbind(1, x) %*% f
+dat &lt;- cbind(x, y) %&gt;%
+  data.frame()  %&gt;%
+  pivot_longer(!x, names_to = &quot;Quantile&quot;, values_to = &quot;foodexp&quot;) %&gt;%
+  mutate(Quantile = factor(100 * as.numeric(str_sub(Quantile,-4,-1)))) %&gt;%
+  rename(income = x)
+
+p &lt;- ggplot(data = engel, aes(x = income, y = foodexp)) +
+  geom_point(alpha = 0.2) +
+  geom_line(
+    data = dat,
+    size = 1,
+    aes(
+      x = income,
+      y = foodexp,
+      group = Quantile,
+      color = Quantile
+    )
+  ) +
+  labs(
+    title = paste0(
+      &quot;Extrapolation of the estimates on &quot;,
+      &quot;the \&#39;engel\&#39; data set causes quantile crossings&quot;
+    ),
+    x = &quot;Household Income&quot;,
+    y = &quot;Food Expenditure&quot;
+  ) +
+  scale_color_brewer(palette = &quot;Paired&quot;) +
+  coord_cartesian(xlim = c(0, 500), ylim = c(0, 500)) + 
+  theme_bw()
+
+
+p + ggsave(
+  &quot;docs/figure/Quantile_regression_engel_dataset_extrapolated.svg&quot;,
+  height = 7,
+  width = 7,
+  dpi = 100
+)</code></pre>
+<p>(Non-)linear quantile regression models are developed independently for each quantile <span class="math inline">\(\tau\)</span>. The advantage is the shape of the distribution need not be specified. The drawback is the possibility of quantile crossings, in which estimated quantile regression curves intersect. This violates the property that a cumulative distribution function be a monotonically increasing function.</p>
+<p>Subsequently, for illustration I use the ‘engel’ data by Ernst Engel and used by <span class="citation">(Koenker and Bassett 1982)</span>. It contains data on income and food expenditure for 235 working class households in 1857 Belgium. The dataset only contains one explanatory variable - the household income. Its minimum is 377.1, the mean equals 982.5 and its maximum is 4957.8.</p>
+<p>Using the engel dataset the left figure below illustrates the 5%, 10%, 25%, 75%, 90% and 95% quantiles that are estimated by the quantile regression.</p>
+<p>Quantile regression guarantees monotonicity of the quantiles only for the centroid of the explanatory variables, see theorem 2.5 in <span class="citation">(Koenker 2005)</span>. When the quantile forecasts are made outside of the domain of the training data (income values below 350 in the right figure below) quantile crossings occur.</p>
+<pre class="r"><code>knitr::include_graphics(c(&quot;figure/Quantile_regression_engel_dataset.svg&quot;,&quot;figure/Quantile_regression_engel_dataset_extrapolated.svg&quot;), error = FALSE)</code></pre>
+<div class="figure" style="text-align: center">
+<img src="figure/Quantile_regression_engel_dataset.svg" alt="Extrapolation of the estimates on the 'engel' data set causes quantile crossings" width="49%" height="49%" /><img src="figure/Quantile_regression_engel_dataset_extrapolated.svg" alt="Extrapolation of the estimates on the 'engel' data set causes quantile crossings" width="49%" height="49%" />
+<p class="caption">
+Extrapolation of the estimates on the ‘engel’ data set causes quantile crossings
+</p>
+</div>
+<pre class="r"><code>taus &lt;- seq(0.5, 0.55, 0.01)
+f &lt;- coef(rq((foodexp) ~ (income), tau = taus, data = engel))
+xx &lt;- seq(0, max(engel$income) + 1000, 100)
+yy &lt;- cbind(1, xx) %*% f
+dat &lt;- data.frame(x = xx, yy)
+colnames(dat) &lt;- c(&quot;x&quot;, &quot;Q50&quot;, &quot;Q51&quot;, &quot;Q52&quot;, &quot;Q53&quot;, &quot;Q54&quot;, &quot;Q55&quot;)
+p&lt;- dat %&gt;%
+  gather(Q50:Q55, key = Quantile, value = Forecast) %&gt;%
+  ggplot(aes(
+    x = x,
+    y = Forecast,
+    group = Quantile,
+    color = Quantile
+  )) +
+  geom_line(size = 2) +
+  coord_cartesian(xlim = c(2990, 3010), ylim = c(1750, 1795)) +
+  scale_color_brewer(palette = &quot;Paired&quot;) +
+  labs(title = &quot;Quantile regression on the Engel dataset&quot;) + 
+  theme_bw()
+
+p + ggsave(
+  &quot;docs/figure/Quantile_regression_engel_dataset_non_monotonic_at3000.svg&quot;,
+  height = 7,
+  width = 7,
+  dpi = 100
+)</code></pre>
+<pre class="r"><code>p&lt;- dat %&gt;%
+  gather(Q50:Q55, key = Quantile, value = Forecast) %&gt;%
+  ggplot(aes(
+    x = x,
+    y = Forecast,
+    group = Quantile,
+    color = Quantile
+  )) +
+  geom_line(size = 2) +
+  coord_cartesian(xlim = c(970, 990), ylim = c(620, 650)) +
+  scale_color_brewer(palette = &quot;Paired&quot;) +
+  labs(title = &quot;Quantile regression on the Engel dataset&quot;) + 
+  theme_bw() 
+
+p + ggsave(
+  &quot;docs/figure/Quantile_regression_engel_dataset_non_monotonic_at985.svg&quot;,
+  height = 7,
+  width = 7,
+  dpi = 100
+)</code></pre>
+<p>The two plots below illustrate the non-monotone quantile forecasts that occur for a value of the explanatory variable (here 3000) that is larger than its mean (here 982). It is for instance the case that the median (Q50) is larger than Q51 and both are smaller than Q55.</p>
+<pre class="r"><code>knitr::include_graphics(c(&quot;figure/Quantile_regression_engel_dataset_non_monotonic_at985.svg&quot;,&quot;figure/Quantile_regression_engel_dataset_non_monotonic_at3000.svg&quot;), error = FALSE)</code></pre>
+<div class="figure" style="text-align: center">
+<img src="figure/Quantile_regression_engel_dataset_non_monotonic_at985.svg" alt="Left: Illustration of the monotonicity of forecasts around the sample mean (982), i.e. Q50 &lt; Q51 &lt; ... &lt; Q55. Right: At income = 3000 we see the inconsistency Q54 &lt; ... &lt; Q51 &lt; Q50 &lt; Q55. Estimation method by Koenker and d'Orey (1987)." width="49%" height="49%" /><img src="figure/Quantile_regression_engel_dataset_non_monotonic_at3000.svg" alt="Left: Illustration of the monotonicity of forecasts around the sample mean (982), i.e. Q50 &lt; Q51 &lt; ... &lt; Q55. Right: At income = 3000 we see the inconsistency Q54 &lt; ... &lt; Q51 &lt; Q50 &lt; Q55. Estimation method by Koenker and d'Orey (1987)." width="49%" height="49%" />
+<p class="caption">
+Left: Illustration of the monotonicity of forecasts around the sample mean (982), i.e. Q50 &lt; Q51 &lt; … &lt; Q55. Right: At income = 3000 we see the inconsistency Q54 &lt; … &lt; Q51 &lt; Q50 &lt; Q55. Estimation method by Koenker and d’Orey (1987).
+</p>
+</div>
+<p>The larger the distance from the centroid the more inplausible the quantile regression‘s forecasts. On the right plot the forecasts for three income levels – 200, 300 and 500 – are presented. The consequence of quantile crossings /non-monotonicity is forecasts that violate the basic assumptions of distribution functions. The median forecast for an income of 200 is about 195. This is lower than the 13% percentile forecast (&gt; 200).</p>
+<pre class="r"><code>taus &lt;- seq(0.01, 0.99, 0.01)
+model_qr &lt;- quantreg::rq(foodexp ~ income, tau = taus, data = engel)
+test &lt;- tibble(income = seq(0, 8000, 100))
+res &lt;- list()
+for (i in 1:nrow(test))
+{
+  res[[i]] &lt;- data.frame(
+    Forecast = as.numeric(predict(model_qr, test[i, ])),
+    Quantile = taus * 100,
+    Income  = test$income[i]
+  )
+}
+
+result &lt;- bind_rows(res)
+medians &lt;- result %&gt;%
+  filter(Income %in% c(200, 300, 500), Quantile == 50) %&gt;%
+  mutate(Income = factor(Income))
+
+p &lt;- result %&gt;%
+  filter(Income %in% c(200, 300, 500)) %&gt;%
+  mutate(Income = factor(Income)) %&gt;%
+  ggplot(aes(
+    x = Quantile,
+    y = Forecast,
+    group = Income,
+    color = Income
+  )) +
+  geom_point() +
+  geom_line() +
+  geom_hline(data = medians, aes(
+    yintercept = Forecast,
+    group = Income,
+    color = Income
+  ))+ 
+  theme_bw()
+
+p + ggsave(
+  &quot;docs/figure/Quantile_regression_engel_dataset_3levels.svg&quot;,
+  height = 7,
+  width = 7,
+  dpi = 100
+)</code></pre>
+<pre class="r fold-hide"><code>knitr::include_graphics(&quot;figure/Quantile_regression_engel_dataset_3levels.svg&quot;, error = FALSE)</code></pre>
+<div class="figure" style="text-align: center">
+<img src="figure/Quantile_regression_engel_dataset_3levels.svg" alt="The quantile forecasts become less erratic for income values closer to its mean." width="60%" />
+<p class="caption">
+The quantile forecasts become less erratic for income values closer to its mean.
+</p>
+</div>
+<p>There are 3 ways to enforce monotonicity:</p>
+<ul>
+<li>Restrictions in the optimisation</li>
+<li>Restrictions on the functional form</li>
+<li>Rearrangement of quantiles</li>
+</ul>
+</div>
+<div id="rearrangement-of-quantiles-for-monotonization" class="section level2">
+<h2>Rearrangement of quantiles for monotonization</h2>
+<p>This section presents the approach by <span class="citation">(Chernozhukov, Fernandez-Val, and Galichon 2010)</span>. Let <span class="math inline">\(u \mapsto Q_0(u|x)\)</span> for <span class="math inline">\(u \in (0,1)\)</span> denote the quantile function of a response variable <span class="math inline">\(Y\)</span> given value <span class="math inline">\(x\)</span>. Let <span class="math inline">\(\hat{Q}_0(u|x)\)</span> be a parametric or non parametric estimation of <span class="math inline">\(Q_0(u|x)\)</span>. The estimated quantile function <span class="math inline">\(\hat{Q}_0(u|x)\)</span> may be non monotone. For monotonization a technique denoted “Rearrangement” is applied.</p>
+<p>Rearrangement is defined as a transformation of the form <span class="math inline">\(Y_x = \hat{Q}_0(u|x)\)</span>, where <span class="math inline">\(\mathcal{U} \sim \text{Uniform}(0,1)\)</span> and calculating the quantile <span class="math inline">\(Y_x\)</span> to obtain a new estimate <span class="math inline">\(\hat{Q}_0^*(u|x)\)</span> of the quantile function. The result of this rearrangement is shown in the plot below.</p>
+<pre class="r"><code>z &lt;- rq(foodexp ~ income, tau = -1, data = engel)
+zp &lt;- predict(z, newdata = list(income = 200), stepfun = TRUE)
+zpnostep &lt;- predict(z, newdata = list(income = 0))
+svg(&quot;docs/figure/Quantile_regression_engel_dataset_rearranged.svg&quot;,
+  height = 7,
+  width = 7)
+plot(
+  zp,
+  do.points = FALSE,
+  xlab = expression(tau),
+  ylab = expression(Q (tau)), 
+  main = &quot;&quot;
+)
+plot(
+  rearrange(zp),
+  do.points = FALSE,
+  add = TRUE,
+  col.h = &quot;red&quot;,
+  col.v = &quot;red&quot;
+)
+legend(
+  0,
+  350,
+  c(&quot;Before Rearrangement&quot;, &quot;After Rearrangement&quot;),
+  lty = 1,
+  col = c(&quot;black&quot;, &quot;red&quot;)
+)
+a &lt;- dev.off()</code></pre>
+<pre class="r fold-hide"><code>knitr::include_graphics(&quot;figure/Quantile_regression_engel_dataset_rearranged.svg&quot;, error = FALSE)</code></pre>
+<div class="figure" style="text-align: center">
+<img src="figure/Quantile_regression_engel_dataset_rearranged.svg" alt="Reordering non-monotonic quantile forecasts." width="60%" />
+<p class="caption">
+Reordering non-monotonic quantile forecasts.
+</p>
+</div>
+<p>The distribution function of <span class="math inline">\(Y_X\)</span> and its quantiles are</p>
+<p><span class="math display">\[\hat{F}(y|x) = \int_0^1 I( \hat{Q}(u|x) \leq y) du\]</span></p>
+<p><span class="math display">\[\hat{Q}_0^*(u|x) = \hat{F}^{-1}(u|x) = \inf{y:\hat{F}(y|x)  \geq u}  \]</span></p>
+<p>The distribution function is now monotone in <span class="math inline">\(y\)</span>, and the quantiles are monotone in <span class="math inline">\(u\)</span>. To estimate <span class="math inline">\(\hat{Q}_0^*(u|x)\)</span> a sequence <span class="math inline">\(u_1, \ldots, u_n\)</span> is generated for which the values <span class="math inline">\(\hat{Q}_0(u_1|x),\ldots, \hat{Q}_0(u_n|x)\)</span> are determined. From these values the <span class="math inline">\(u\)</span>-th quantile is estimated. The properties of this method are:</p>
+<ul>
+<li>The quantiles <span class="math inline">\(\hat{Q}_0^*(u|x)\)</span> are monotone and closer to the true quantiles than the original quantiles</li>
+</ul>
+<p><span class="math display">\[|| \hat{Q}_0^* - \hat{Q}_0||_p  \leq || \hat{Q} - \hat{Q}_0||_p, p \in [1,\infty] \]</span></p>
+<ul>
+<li><p>They deviate from the original quantiles <span class="math inline">\(\hat{Q}_0(u|x)\)</span> only when the original quantiles are non monontone.</p></li>
+<li><p>They have smaller estimation error than the original curves when the latter are not monotone.</p></li>
+<li><p>They inherit the asymptotic properties from the original quantile curve (under weak conditions on non monotonic quantile estimates) so that all inference tools can be applied.</p></li>
+<li><p>The theory holds without any constraints on the particular estimation method for the original quantiles <span class="math inline">\(\hat{Q}_0(u|x)\)</span> sample size independence of data or parametric assumptions reason of non-monotonicity (like model misspecification, estimation error, etc.)</p></li>
+</ul>
+</div>
+<div id="nonparametric-quantile-regression" class="section level2">
+<h2>Nonparametric quantile regression</h2>
+<p><span class="citation">(Muggeo et al. 2013)</span> use monotonic B-splines for the estimation of the quantiles.</p>
+<p>The plot on the left shows the 5%, 10%, 25%, 75%, 90% and 95% percentiles. The right plot shows all percentiles. The advantage of this model is that the quantile forecasts are guaranteed to be monotonic. One of the drawbacks is the non-intuitive shapes of the quantiles as illustrated in the right plot below.</p>
+<pre class="r"><code>taus &lt;- c(.05, .1, .25, .75, .9, .95)
+m4 &lt;- gcrq(foodexp ~ ps(income, mon = 1, lambda = 5), tau = taus, data = engel)
+svg(&quot;docs/figure/Nonparametric_Quantile_Regression_engel_dataset_6quantiles.svg&quot;,
+  height = 7,
+  width = 7)
+plot(m4, pch = 20, res = TRUE)
+a &lt;- dev.off()</code></pre>
+<pre class="r"><code>taus &lt;- seq(0.01, 0.99, 0.01)
+m5 &lt;- gcrq(foodexp ~ ps(income, mon = 1, lambda = 5), tau = taus, data = engel)
+svg(&quot;docs/figure/Nonparametric_Quantile_Regression_engel_dataset_99quantiles.svg&quot;,
+  height = 7,
+  width = 7)
+plot(m5, pch = 20, res = TRUE)
+a &lt;- dev.off()</code></pre>
+<pre class="r"><code>knitr::include_graphics(c(&quot;figure/Nonparametric_Quantile_Regression_engel_dataset_6quantiles.svg&quot;,&quot;figure/Nonparametric_Quantile_Regression_engel_dataset_99quantiles.svg&quot;), error = FALSE)</code></pre>
+<div class="figure" style="text-align: center">
+<img src="figure/Nonparametric_Quantile_Regression_engel_dataset_6quantiles.svg" alt="Non-parametric quantiles for the engel dataset. Left: 6 quantiles. Right: 99 quantiles" width="49%" height="49%" /><img src="figure/Nonparametric_Quantile_Regression_engel_dataset_99quantiles.svg" alt="Non-parametric quantiles for the engel dataset. Left: 6 quantiles. Right: 99 quantiles" width="49%" height="49%" />
+<p class="caption">
+Non-parametric quantiles for the engel dataset. Left: 6 quantiles. Right: 99 quantiles
+</p>
+</div>
+<pre class="r"><code>model &lt;-
+  rq(foodexp ~ income, method = &quot;lasso&quot;, data = engel)$coefficients
+test &lt;- tibble(income = seq(0, 8000, 100),
+               foodexp = model[1] + model[2] * income)
+
+test_growth &lt;- cbind(test, NA)
+
+res &lt;- list()
+for (i in 1:nrow(test))
+{
+  res[[i]] &lt;- data.frame(
+    Forecast = as.numeric(predict.gcrq(m5, test_growth[i, ])),
+    Quantile = taus * 100,
+    Income  = test$income[i]
+  )
+}
+result &lt;- bind_rows(res)
+
+for (incomevalue in c(0, 200, 500, 2000, 5000, 8000))
+{
+  tmp &lt;- result %&gt;%
+    filter(Income %in% incomevalue)
+  #get the median forecast
+  med &lt;- tmp %&gt;% filter(Quantile == 50) %&gt;% .$Forecast
+  
+  p &lt;- tmp  %&gt;%
+    ggplot(aes(x = Quantile, y = Forecast)) +
+    geom_point() +
+    geom_line() +
+    geom_hline(aes(yintercept = med)) +
+    geom_text(x = 10,
+              y = med * 1.01,
+              label = &quot;Median forecast&quot;) +
+    labs(
+      title = paste0(&quot;Nonparametric quantile forecasts for income = &quot;, incomevalue)
+    ) + 
+    theme_bw()
+  
+  p + ggsave(
+    paste0(&quot;docs/figure/Nonparametric_quantile_&quot;, incomevalue, &quot;.svg&quot;),
+    height = 7,
+    width = 7,
+    dpi = 100
+  )
+}</code></pre>
+<p>A further drawback of the model is that the forecasts do not change at certain quantile levels. This is illustrated in the pots below for different values of the income of the engel dataset.</p>
+<pre class="r"><code>knitr::include_graphics(c(&quot;figure/Nonparametric_quantile_0.svg&quot;,&quot;figure/Nonparametric_quantile_200.svg&quot;), error = FALSE)
+knitr::include_graphics(c(&quot;figure/Nonparametric_quantile_500.svg&quot;,&quot;figure/Nonparametric_quantile_2000.svg&quot;), error = FALSE)
+knitr::include_graphics(c(&quot;figure/Nonparametric_quantile_5000.svg&quot;,&quot;figure/Nonparametric_quantile_8000.svg&quot;), error = FALSE)</code></pre>
+<div class="figure" style="text-align: center">
+<img src="figure/Nonparametric_quantile_0.svg" alt="All forecasts are monotonically increasing with the quantile. Forecasts for different levels of the income variable are identical" width="49%" height="32%" /><img src="figure/Nonparametric_quantile_200.svg" alt="All forecasts are monotonically increasing with the quantile. Forecasts for different levels of the income variable are identical" width="49%" height="32%" /><img src="figure/Nonparametric_quantile_500.svg" alt="All forecasts are monotonically increasing with the quantile. Forecasts for different levels of the income variable are identical" width="49%" height="32%" /><img src="figure/Nonparametric_quantile_2000.svg" alt="All forecasts are monotonically increasing with the quantile. Forecasts for different levels of the income variable are identical" width="49%" height="32%" /><img src="figure/Nonparametric_quantile_5000.svg" alt="All forecasts are monotonically increasing with the quantile. Forecasts for different levels of the income variable are identical" width="49%" height="32%" /><img src="figure/Nonparametric_quantile_8000.svg" alt="All forecasts are monotonically increasing with the quantile. Forecasts for different levels of the income variable are identical" width="49%" height="32%" />
+<p class="caption">
+All forecasts are monotonically increasing with the quantile. Forecasts for different levels of the income variable are identical
+</p>
+</div>
+</div>
+<div id="monotone-composite-quantile-regression-neural-network-mcqrnn" class="section level2">
+<h2>Monotone Composite Quantile Regression Neural Network (MCQRNN)</h2>
+<p>The Monotone Composite Quantile Regression Neural Network (MCQRNN) for simultaneous estimation of multiple non-crossing quantiles by <span class="citation">(Cannon 2018)</span> is based on the multi-layer perceptron (MLP) neural network with partial monotonicity constraints <span class="citation">(Zhang and Zhang 1999)</span>.</p>
+<p><span class="math display">\[h_j(t) = f\left(\sum_{m \in M} x_m(t) \exp\left(W_{mj}^{(h)}\right)  + \sum_{i \in I}  x_i(t)  W_{ij}^{(h)} + b_j^{(h)}  \right) \]</span></p>
+<p><span class="math inline">\(M\)</span> is the set of indices for covariates with a monotone increasing relationship with the prediction, <span class="math inline">\(I\)</span> is the corresponding set of indices for covariates without monotonicity constraints.</p>
+<p>The MCQRNN generates monotonic forecasts in <span class="math inline">\(\tau\)</span>, i.e. non-crossing quantile functions <span class="math inline">\(\tau_1 &lt; \tau_2 &lt; \ldots &lt; \tau_K\)</span>, by stacking <span class="math inline">\(K\)</span> copies of the the covariate dataset <span class="math inline">\(\mathbf{X}\)</span> and the response vector <span class="math inline">\(\mathbf{y}\)</span> to <span class="math inline">\(\mathbf{X}^{(S)}\)</span> and <span class="math inline">\(\mathbf{y}^{(S)}\)</span>. The quantile <span class="math inline">\(\tau_i\)</span> is added to <span class="math inline">\(\mathbf{X}\)</span> as an explanatory variable for the MQRNN quantile regression. The <span class="math inline">\(\tau_i\)</span> are treated as monotone covariates. This means that for estimating 99 percentiles the number of rows in the dataset increases 99 times.</p>
+<p><span class="math display">\[\mathbf{X}^{(S)} = \left[
+\begin{matrix}
+\tau_1 &amp; x_1(1) &amp; \dots     &amp; x_{\#1}(1) \\
+\vdots &amp; \vdots &amp; \ddots    &amp;\vdots\\
+\tau_1 &amp; x_1(N) &amp; \dots     &amp; x_{\#1}(N)\\
+\tau_2 &amp; x_1(1) &amp; \dots     &amp; x_{\#1}(1)\\
+\vdots &amp; \vdots &amp; \ddots    &amp;\vdots\\
+\tau_2 &amp; x_1(N) &amp; \dots     &amp; x_{\#1}(N)\\
+\vdots &amp; \vdots &amp; \vdots    &amp;\vdots\\
+\tau_K &amp; x_1(1) &amp; \dots     &amp; x_{\#1}(1)\\
+\vdots &amp; \vdots &amp; \ddots    &amp;\vdots\\
+\tau_K &amp; x_1(N) &amp; \dots     &amp; x_{\#1}(N)\\
+\end{matrix}\right],
+\mathbf{y}^{(S)} = 
+\left[
+\begin{matrix}
+y(1)     \\
+\vdots  \\
+y(N)     \\
+y(1)     \\
+\vdots  \\
+y(N)     \\
+\vdots  \\
+y(1)     \\
+\vdots  \\
+y(N)     \\
+\end{matrix}\right]\]</span></p>
+<pre class="r"><code>x &lt;- as.matrix(engel$income)
+y &lt;- as.matrix(engel$foodexp)
+
+fit.mcqrnn &lt;-
+  mcqrnn.fit(
+    x,
+    y,
+    n.hidden = 3,
+    n.hidden2 = 3,
+    tau = seq(0.01, 0.99, by = 0.01),
+    iter.max = 500,
+    trace = FALSE
+  )
+pred.mcqrnn.alltaus &lt;- mcqrnn.predict(x, fit.mcqrnn)
+pred.mcqrnn.selectedtaus &lt;-
+  mcqrnn.predict(x, fit.mcqrnn, tau = c(0.05, 0.25, 0.5, 0.75, 0.9, 0.95))
+
+df &lt;- data.frame(pred.mcqrnn.selectedtaus)
+total &lt;- cbind(df, x, y)
+colnames(total) &lt;-
+  c(&quot;5&quot;, &quot;25&quot;, &quot;50&quot;, &quot;75&quot;, &quot;90&quot;, &quot;95&quot;, &quot;Income&quot;, &quot;Foodexp&quot;)
+
+total &lt;- total %&gt;%
+  gather(&quot;5&quot;:&quot;95&quot;, key = Quantile, value = Forecast) %&gt;%
+  mutate(Quantile = paste0(Quantile, &quot;%&quot;))
+
+p&lt;- ggplot() +
+  geom_point(data = total, aes(x = Income, y = Foodexp)) +
+  geom_line(data = total,
+            aes(
+              x = Income,
+              y = Forecast,
+              group = Quantile,
+              color = Quantile
+            )) +
+  theme_light(base_size = 14) +
+  scale_colour_brewer(palette = &quot;Paired&quot;) +
+  labs(
+    title = paste0(
+      &quot;Quantile forecasts of a monotone composite &quot;,
+      &quot;quantile regression neural network (MCQRNN)&quot;
+    )
+  ) + 
+  theme_bw(base_size = 14)
+
+p + ggsave(
+  paste0(&quot;docs/figure/MQRNN.svg&quot;),
+  height = 7,
+  width = 7,
+  dpi = 100
+)</code></pre>
+<p>The drawback of this procedure is the increasing runtime. The plot below shows the quantile estimates for the engel dataset.</p>
+<pre class="r fold-hide"><code>knitr::include_graphics(&quot;figure/MQRNN.svg&quot;, error = FALSE)</code></pre>
+<div class="figure" style="text-align: center">
+<img src="figure/MQRNN.svg" alt="Quantile forecasts of a monotone composite quantile regression neural network (MCQRNN)" width="60%" />
+<p class="caption">
+Quantile forecasts of a monotone composite quantile regression neural network (MCQRNN)
+</p>
+</div>
+</div>
+<div id="quantile-forecasts-with-extremely-randomized-trees" class="section level2">
+<h2>Quantile forecasts with Extremely Randomized Trees</h2>
+<p>Extremely randomized trees (ET, see <span class="citation">(Geurts, Ernst, and Wehenkel 2006)</span>) differ from random forests (RF) in two aspects:</p>
+<ul>
+<li>ET use the whole learning sample rather than a bootstrap replica to grow the trees.</li>
+<li>ET split nodes by choosing cut-points for each feature fully at random. This means the randomness is not caused by bootstrapping the data, but the random splits of all observations. Once the split points are selected, both RF and ET choose the optimal feature.</li>
+</ul>
+<p>Quantile regression forests (QRF) vs. random forests (RF): For each node in each tree, RF keep only the mean of the observations that fall into this node. QRF keep the value of all observations in this node, not just their mean, and assesses the conditional distribution based on this information.</p>
+<pre class="r"><code>y &lt;- engel$foodexp
+x &lt;- engel %&gt;% select(income)
+et &lt;-
+  extraTrees(
+    x,
+    y,
+    numRandomCuts = 2,
+    nodesize = 4,
+    ntree = 2000,
+    quantile = T
+  )
+
+forecasts &lt;- list()
+quantiles &lt;- c(0.01, 0.02, 0.03, 0.97, 0.98, 0.99)
+for (i in 1:length(quantiles))
+{
+  df &lt;- data.frame(
+    Forecast = predict(et, x, quantile = quantiles[i]),
+    Income = x$income,
+    Quantile = paste0(as.integer(100 * quantiles[i]), &quot;%&quot;)
+  )
+  forecasts[[i]] &lt;- df
+}
+
+tmp &lt;- do.call(&quot;rbind&quot;, forecasts)
+
+p &lt;- ggplot() +
+  geom_line(
+    data = tmp,
+    aes(
+      x = Income,
+      y = Forecast,
+      color = Quantile,
+      group = Quantile
+    ),
+    size = 1
+  ) +
+  geom_point(data = engel, aes(x = income, y = foodexp)) +
+  theme_bw() +
+  labs(title = &quot;Extratrees&#39; forecasts for the lowest and highest percentiles&quot;)
+
+p + ggsave(
+  paste0(&quot;docs/figure/ExtraTrees.svg&quot;),
+  height = 7,
+  width = 7,
+  dpi = 100
+)</code></pre>
+<pre class="r fold-hide"><code>knitr::include_graphics(&quot;figure/ExtraTrees.svg&quot;, error = FALSE)</code></pre>
+<div class="figure" style="text-align: center">
+<img src="figure/ExtraTrees.svg" alt="Quantile forecasts of an extraTrees model. Forecasts are generated on the training data (no cross validation). Note the monotonicity and the overfitting." width="60%" />
+<p class="caption">
+Quantile forecasts of an extraTrees model. Forecasts are generated on the training data (no cross validation). Note the monotonicity and the overfitting.
+</p>
+</div>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<div id="refs">
+<div id="ref-Barrodale1973">
+<p>Barrodale, Ian, and F. D. K. Roberts. 1973. “An Improved Algorithm for Discrete $l_1 $ Linear Approximation.” <em>SIAM Journal on Numerical Analysis</em> 10: 839–48.</p>
+</div>
+<div id="ref-Cannon2018">
+<p>Cannon, Alex. 2018. “Non-Crossing Nonlinear Regression Quantiles by Monotone Composite Quantile Regression Neural Network, with Application to Rainfall Extremes.” <em>Stochastic Environmental Research and Risk Assessment</em> 32 (November). <a href="https://doi.org/10.1007/s00477-018-1573-6">https://doi.org/10.1007/s00477-018-1573-6</a>.</p>
+</div>
+<div id="ref-Chernozhukov2010">
+<p>Chernozhukov, Victor, Ivan Fernandez-Val, and Alfred Galichon. 2010. “Quantile and Probability Curves Without Crossing.” <em>Econometrica</em> 78 (3): 1093–1125. <a href="https://EconPapers.repec.org/RePEc:ecm:emetrp:v:78:y:2010:i:3:p:1093-1125">https://EconPapers.repec.org/RePEc:ecm:emetrp:v:78:y:2010:i:3:p:1093-1125</a>.</p>
+</div>
+<div id="ref-Geurts2006">
+<p>Geurts, Pierre, Damien Ernst, and Louis Wehenkel. 2006. “Extremely Randomized Trees.” <em>Machine Learning</em> 63 (April): 3–42. <a href="https://doi.org/10.1007/s10994-006-6226-1">https://doi.org/10.1007/s10994-006-6226-1</a>.</p>
+</div>
+<div id="ref-Hyndman1996">
+<p>Hyndman, Rob, and Yanan Fan. 1996. “Sample Quantiles in Statistical Packages.” <em>The American Statistician</em> 50 (November): 361–65. <a href="https://doi.org/10.1080/00031305.1996.10473566">https://doi.org/10.1080/00031305.1996.10473566</a>.</p>
+</div>
+<div id="ref-Koenker2005">
+<p>Koenker, Roger. 2005. <em>Quantile Regression</em>. Econometric Society Monographs. Cambridge University Press. <a href="https://doi.org/10.1017/CBO9780511754098">https://doi.org/10.1017/CBO9780511754098</a>.</p>
+</div>
+<div id="ref-Koenker1982">
+<p>Koenker, Roger, and Gilbert Bassett. 1982. “Robust Tests for Heteroscedasticity Based on Regression Quantiles.” <em>Econometrica</em> 50 (1): 43–61. <a href="https://EconPapers.repec.org/RePEc:ecm:emetrp:v:50:y:1982:i:1:p:43-61">https://EconPapers.repec.org/RePEc:ecm:emetrp:v:50:y:1982:i:1:p:43-61</a>.</p>
+</div>
+<div id="ref-Koenker2013">
+<p>Koenker, Roger, Samantha Leorato, and Franco Peracchi. 2013. “Distributional Vs. Quantile Regression.” CEIS Research Paper 300. Tor Vergata University, CEIS. <a href="https://EconPapers.repec.org/RePEc:rtv:ceisrp:300">https://EconPapers.repec.org/RePEc:rtv:ceisrp:300</a>.</p>
+</div>
+<div id="ref-Muggeo2013">
+<p>Muggeo, Vito, Mariangela Sciandra, Agostino Tomasello, and Sebastiano Calvo. 2013. “Estimating Growth Charts via Nonparametric Quantile Regression: A Practical Framework with Application in Ecology.” <em>Environmental and Ecological Statistics</em> 20 (December). <a href="https://doi.org/10.1007/s10651-012-0232-1">https://doi.org/10.1007/s10651-012-0232-1</a>.</p>
+</div>
+<div id="ref-Reiss1989">
+<p>Reiss, R. D. 1989. <em>Approximate Distributions of Order Statistics, with Applications to Nonparametricstatistics</em>. New York: Springer.</p>
+</div>
+<div id="ref-Zhang1999">
+<p>Zhang, Hong, and Zhen Zhang. 1999. “Feedforward Networks with Monotone Constraints.” <em>IJCNN’99. International Joint Conference on Neural Networks. Proceedings (Cat. No.99CH36339)</em> 3: 1820–3 vol.3.</p>
+</div>
+</div>
+<br>
+<p>
+<button type="button" class="btn btn-default btn-workflowr btn-workflowr-sessioninfo" data-toggle="collapse" data-target="#workflowr-sessioninfo" style="display: block;">
+<span class="glyphicon glyphicon-wrench" aria-hidden="true"></span> Session information
+</button>
+</p>
+<div id="workflowr-sessioninfo" class="collapse">
+<pre class="r"><code>sessionInfo()</code></pre>
+<pre><code>R version 4.0.3 (2020-10-10)
+Platform: x86_64-w64-mingw32/x64 (64-bit)
+Running under: Windows 10 x64 (build 19042)
+
+Matrix products: default
+
+locale:
+[1] LC_COLLATE=German_Austria.1252  LC_CTYPE=German_Austria.1252   
+[3] LC_MONETARY=German_Austria.1252 LC_NUMERIC=C                   
+[5] LC_TIME=German_Austria.1252    
+
+attached base packages:
+[1] splines   stats     graphics  grDevices utils     datasets  methods  
+[8] base     
+
+other attached packages:
+ [1] extraTrees_1.0.5     rJava_1.0-5          qrnn_2.0.5          
+ [4] quantregGrowth_1.4-0 magrittr_2.0.1       forcats_0.5.0       
+ [7] stringr_1.4.0        dplyr_1.0.2          purrr_0.3.4         
+[10] readr_1.4.0          tidyr_1.1.2          tibble_3.0.4        
+[13] ggplot2_3.3.3        tidyverse_1.3.0      quantreg_5.85       
+[16] SparseM_1.81        
+
+loaded via a namespace (and not attached):
+ [1] Rcpp_1.0.5         svglite_2.0.0      lubridate_1.7.9.2  lattice_0.20-41   
+ [5] assertthat_0.2.1   rprojroot_2.0.2    digest_0.6.27      R6_2.5.0          
+ [9] cellranger_1.1.0   backports_1.2.0    MatrixModels_0.5-0 reprex_0.3.0      
+[13] evaluate_0.14      highr_0.8          httr_1.4.2         pillar_1.4.7      
+[17] rlang_0.4.10       readxl_1.3.1       rstudioapi_0.13    Matrix_1.2-18     
+[21] rmarkdown_2.6      labeling_0.4.2     munsell_0.5.0      broom_0.7.5       
+[25] compiler_4.0.3     httpuv_1.6.0       modelr_0.1.8       xfun_0.20         
+[29] systemfonts_1.0.1  pkgconfig_2.0.3    htmltools_0.5.1.1  tidyselect_1.1.0  
+[33] workflowr_1.6.2    matrixStats_0.58.0 fansi_0.4.1        withr_2.3.0       
+[37] crayon_1.3.4       conquer_1.0.2      dbplyr_2.0.0       later_1.1.0.1     
+[41] grid_4.0.3         jsonlite_1.7.2     gtable_0.3.0       lifecycle_0.2.0   
+[45] DBI_1.1.0          git2r_0.29.0       scales_1.1.1       cli_2.2.0         
+[49] stringi_1.5.3      farver_2.0.3       fs_1.5.0           promises_1.2.0.1  
+[53] xml2_1.3.2         ellipsis_0.3.1     generics_0.1.0     vctrs_0.3.6       
+[57] RColorBrewer_1.1-2 tools_4.0.3        glue_1.4.2         hms_0.5.3         
+[61] yaml_2.2.1         colorspace_2.0-0   rvest_0.3.6        knitr_1.30        
+[65] haven_2.3.1       </code></pre>
+</div>
+</div>
+
+
+<!-- Adjust MathJax settings so that all math formulae are shown using
+TeX fonts only; see
+http://docs.mathjax.org/en/latest/configuration.html.  This will make
+the presentation more consistent at the cost of the webpage sometimes
+taking slightly longer to load. Note that this only works because the
+footer is added to webpages before the MathJax javascript. -->
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config({
+    "HTML-CSS": { availableFonts: ["TeX"] }
+  });
+</script>
+
+
+</div>
+</div>
+
+</div>
+
+<script>
+
+// add bootstrap table styles to pandoc tables
+function bootstrapStylePandocTables() {
+  $('tr.odd').parent('tbody').parent('table').addClass('table table-condensed');
+}
+$(document).ready(function () {
+  bootstrapStylePandocTables();
+});
+
+
+</script>
+
+<!-- tabsets -->
+
+<script>
+$(document).ready(function () {
+  window.buildTabsets("TOC");
+});
+
+$(document).ready(function () {
+  $('.tabset-dropdown > .nav-tabs > li').click(function () {
+    $(this).parent().toggleClass('nav-tabs-open')
+  });
+});
+</script>
+
+<!-- code folding -->
+<script>
+$(document).ready(function () {
+  window.initializeCodeFolding("hide" === "show");
+});
+</script>
+
+<script>
+$(document).ready(function ()  {
+
+    // move toc-ignore selectors from section div to header
+    $('div.section.toc-ignore')
+        .removeClass('toc-ignore')
+        .children('h1,h2,h3,h4,h5').addClass('toc-ignore');
+
+    // establish options
+    var options = {
+      selectors: "h1,h2,h3",
+      theme: "bootstrap3",
+      context: '.toc-content',
+      hashGenerator: function (text) {
+        return text.replace(/[.\\/?&!#<>]/g, '').replace(/\s/g, '_');
+      },
+      ignoreSelector: ".toc-ignore",
+      scrollTo: 0
+    };
+    options.showAndHide = true;
+    options.smoothScroll = true;
+
+    // tocify
+    var toc = $("#TOC").tocify(options).data("toc-tocify");
+});
+</script>
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

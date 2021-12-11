@@ -1,0 +1,678 @@
+---
+title: "Monotonicity of quantile forecasts"
+author: "Johannes Leitner"
+output:
+  html_document:
+    df_print: paged
+    code_folding: hide
+bibliography: ref_quantile.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+\newcommand{\matr}[1]{\mathbf{#1}}
+
+## Highlights
+
+* Many models that generate quantile forecasts suffer from inconsistencies - e.g. the forecast of the 98% quantile is larger than the forecast of the 99% quantile. 
+* Enforcing monotonicity (and therefore plausibility) of the quantile forecasts comes with a cost, for instance non-intuitive qunatile shapes. 
+* Several of these models are discussed below. My preference are extremely randomized trees. 
+
+## Distribution regression versus quantile regression
+
+There are two approaches for estimating the conditional distribution of a scalar random variable $X$ given a random vector $Y$ when the available data are a sample from the joint distribution of $(X,Y)$: 
+
+  * Distributional regression (DR) based on direct estimation of the conditional distribution function (CDF)  $F(y|x)=P\{Y=y|X=x\}, y \in 	\mathbb{R}$
+  * Quantile regression (QR) based on direct estimation of the conditional quantile function (CQF) $Q(p|x)=\inf\{y \in 	\mathbb{R}:F(y|x)\geq p\}, p \in (0,1)$
+
+For a comparison of both approaches see [@Koenker2013.]
+
+Although, any estimation procedure that directly estimates the CDF or CQF can be included in the DR approach most of the recent literature, the term DR refers to estimation of the functions at a finite number of cutoffs, i.e. the 99 percentiles 1%, 2%,... , 99%. 
+
+## Definition of quantiles
+R‘s stats::quantile function gives access to 9 different quantile definitions by [@Hyndman1996], who recommend type 8. It gives approximately median-unbiased estimates of $Q(p)$ (see [@Reiss1989]) regardless of the distribution. R‘s stats::quantile and Python‘s numpy.quantile use type 7 by default. 
+
+Irrespective of the definition for the random variables $X$ and $Y$: 
+$$ Q_X(p) + Q_Y(p) \neq Q_{X+Y}(p)$$
+```{r, message=FALSE, warning = FALSE}
+library(quantreg)
+data(engel)
+
+library(tidyverse)
+library(magrittr)
+library(quantregGrowth)
+library(qrnn)
+
+options(java.parameters = "-Xmx2g")
+library(extraTrees)
+
+options(stringsAsFactors = F)
+```
+
+
+The table illustrates the differences of these definitions for 2 discrete random variables: 
+
+* The 16.67% quantile of a single die
+* The 16.67% quantile of the sum of two dice
+
+
+```{r}
+df <- data.frame(Definition = 1:9,
+                 col1 = 1:9,
+                 col2 = 1:9)
+die <- 1:6
+dies <- c(2,3,3,4,4,4,5,5,5,5,6,6,6,6,6,7,7,7,7,7,7,
+          8,8,8,8,8,9,9,9,9,10,10,10,11,11,12)
+for (i in 1:9)
+{
+  df$col1[i] <- round(quantile(die, probs = 1/6, type = i), 2)
+  df$col2[i] <- round(quantile(dies, probs = 1/6, type = i), 2)
+}
+colnames(df)[1:3] <-
+  c("Qantile definition #","16.7% quantile of fair die", "16.7% quantile of 2 fair dice")
+knitr::kable(df, format = "markdown"
+)
+
+```
+
+
+## Quantile regression
+For the OLS estimation of a linear regression for $k$ explanatory variables we estimate 
+
+$$\hat{\beta} = \underset{\beta \in  \mathbb{R}^k}{\operatorname{argmin}} \sum_{i = 1}^n (y_i-x_i^T\beta)^2$$
+
+In a median regression we estimate $\beta$ that minimizes absolute deviations: 
+
+For the OLS estimation of a linear regression for $k$ explanatory variables we estimate 
+
+$$\hat{\beta} = \underset{\beta \in  \mathbb{R}^k}{\operatorname{argmin}} \sum_{i = 1}^n |y_i-x_i^T\beta|$$
+
+This is a special case of quantile regression for the quantile $\tau \in (0,1)$: 
+
+$$\hat{\beta_{\tau}} = \underset{\beta \in  \mathbb{R}^k}{\operatorname{argmin}} \sum_{i = 1}^n \rho_{\tau}|y_i-x_i^T\beta|$$
+where $\rho_{\tau}(x) = x(\tau-\mathbf {1}(x<0))$ and $\mathbf {1}$ denotes the indicator function. Using $w_i = u_i\mathbf {1}(u_i > 0), v_i = |u_i|\mathbf {1}(u_i < 0)$ we can rewrite the optimization problem as a linear program: 
+
+$$\underset{\beta \in  \mathbb{R}^k, \  w,v \in \mathbb{R}^n}{\operatorname{argmin}} \tau \mathbf {1}_n^T w  + (1-\tau) \mathbf {1}_n^T v $$
+$$s.t. y- X^T\beta = w-v $$
+$$w \geq 0, v \geq 0$$
+
+
+The objective function for quantile regression is non-differentiable. The function is minimized via the simplex method, which is guaranteed to yield a solution in a finite number of iterations.
+The method of [@Barrodale1973] has been widely used to minimize the objective. In both the quantreg R package as well as the SAS PROC QUANTREG procedure it is the default method. 
+Other models that use gradient-based methods require an approximation of the loss function, for instance the Huber Loss. 
+
+
+## Quantile crossings
+
+```{r, message=FALSE, warning = FALSE,fig.show='hide'}
+#Estimate quantile regression on the complete dataset
+taus <- c(.05, .1, .25, .75, .9, .95)
+x <- seq(min(engel$income), max(engel$income), 100)
+f <- coef(rq((foodexp) ~ (income), tau = taus, data = engel))
+y <- cbind(1, x) %*% f
+dat <- cbind(x, y) %>%
+  data.frame() %>%
+  pivot_longer(!x, names_to = "Quantile", values_to = "foodexp") %>%
+  mutate(Quantile = factor(100 * as.numeric(str_sub(Quantile,-4,-1)))) %>%
+  rename(income = x)
+
+p <- ggplot(data = engel, aes(x = income, y = foodexp)) +
+  geom_point(alpha = 0.2) +
+  geom_line(
+    data = dat,
+    size = 1,
+    aes(
+      x = income,
+      y = foodexp,
+      group = Quantile,
+      color = Quantile
+    )
+  ) +
+  labs(title = "Quantile regression on the \'engel\' data set",
+       x = "Household Income",
+       y = "Food Expenditure") +
+  scale_color_brewer(palette = "Paired") + 
+  theme_bw()
+
+
+p + ggsave(
+  "docs/figure/Quantile_regression_engel_dataset.svg",
+  height = 7,
+  width = 7,
+  dpi = 100
+)
+
+
+#Extrapolate the estimated model to new data - this causes quantile crossings
+
+taus <- c(.05, .1, .25, .75, .9, .95)
+x <- seq(0, max(engel$income) + 1000, 100)
+f <- coef(rq((foodexp) ~ (income), tau = taus, data = engel))
+y <- cbind(1, x) %*% f
+dat <- cbind(x, y) %>%
+  data.frame()  %>%
+  pivot_longer(!x, names_to = "Quantile", values_to = "foodexp") %>%
+  mutate(Quantile = factor(100 * as.numeric(str_sub(Quantile,-4,-1)))) %>%
+  rename(income = x)
+
+p <- ggplot(data = engel, aes(x = income, y = foodexp)) +
+  geom_point(alpha = 0.2) +
+  geom_line(
+    data = dat,
+    size = 1,
+    aes(
+      x = income,
+      y = foodexp,
+      group = Quantile,
+      color = Quantile
+    )
+  ) +
+  labs(
+    title = paste0(
+      "Extrapolation of the estimates on ",
+      "the \'engel\' data set causes quantile crossings"
+    ),
+    x = "Household Income",
+    y = "Food Expenditure"
+  ) +
+  scale_color_brewer(palette = "Paired") +
+  coord_cartesian(xlim = c(0, 500), ylim = c(0, 500)) + 
+  theme_bw()
+
+
+p + ggsave(
+  "docs/figure/Quantile_regression_engel_dataset_extrapolated.svg",
+  height = 7,
+  width = 7,
+  dpi = 100
+)
+
+```
+
+(Non-)linear quantile regression models are developed independently for each quantile $\tau$. The advantage is the shape of the distribution need not be specified. The drawback is the possibility of quantile crossings, in which estimated quantile regression curves intersect. This violates the property that a cumulative distribution function be a monotonically increasing function. 
+
+Subsequently, for illustration I use the 'engel' data by Ernst Engel and used by [@Koenker1982]. It contains data on income and food expenditure for 235 working class households in 1857 Belgium. The dataset only contains one explanatory variable - the household income. Its minimum is 377.1, the mean equals 982.5 and its maximum is 4957.8.
+
+Using the engel dataset the left figure below illustrates the 5%, 10%, 25%, 75%, 90% and 95% quantiles that are estimated by the quantile regression. 
+
+Quantile regression guarantees monotonicity  of the quantiles only for the centroid of the explanatory variables, see theorem 2.5 in [@Koenker2005]. When the quantile forecasts are made outside of the domain of the training data (income values below 350 in the right figure below) quantile crossings occur. 
+
+```{r,out.width="49%",out.height="49%",fig.show='hold',fig.align='center', fig.cap="Extrapolation of the estimates on the \'engel\' data set causes quantile crossings"}
+knitr::include_graphics(c("figure/Quantile_regression_engel_dataset.svg","figure/Quantile_regression_engel_dataset_extrapolated.svg"), error = FALSE)
+```
+
+
+
+```{r, message=FALSE, warning = FALSE,fig.show='hide'}
+taus <- seq(0.5, 0.55, 0.01)
+f <- coef(rq((foodexp) ~ (income), tau = taus, data = engel))
+xx <- seq(0, max(engel$income) + 1000, 100)
+yy <- cbind(1, xx) %*% f
+dat <- data.frame(x = xx, yy)
+colnames(dat) <- c("x", "Q50", "Q51", "Q52", "Q53", "Q54", "Q55")
+p<- dat %>%
+  gather(Q50:Q55, key = Quantile, value = Forecast) %>%
+  ggplot(aes(
+    x = x,
+    y = Forecast,
+    group = Quantile,
+    color = Quantile
+  )) +
+  geom_line(size = 2) +
+  coord_cartesian(xlim = c(2990, 3010), ylim = c(1750, 1795)) +
+  scale_color_brewer(palette = "Paired") +
+  labs(title = "Quantile regression on the Engel dataset") + 
+  theme_bw()
+
+p + ggsave(
+  "docs/figure/Quantile_regression_engel_dataset_non_monotonic_at3000.svg",
+  height = 7,
+  width = 7,
+  dpi = 100
+)
+
+p<- dat %>%
+  gather(Q50:Q55, key = Quantile, value = Forecast) %>%
+  ggplot(aes(
+    x = x,
+    y = Forecast,
+    group = Quantile,
+    color = Quantile
+  )) +
+  geom_line(size = 2) +
+  coord_cartesian(xlim = c(970, 990), ylim = c(620, 650)) +
+  scale_color_brewer(palette = "Paired") +
+  labs(title = "Quantile regression on the Engel dataset") + 
+  theme_bw() 
+
+p + ggsave(
+  "docs/figure/Quantile_regression_engel_dataset_non_monotonic_at985.svg",
+  height = 7,
+  width = 7,
+  dpi = 100
+)
+
+```
+
+The two plots below illustrate the non-monotone quantile forecasts that occur for a value of the explanatory variable (here 3000) that is larger than its mean (here 982). It is for instance the case that the median (Q50) is larger than Q51 and both are smaller than Q55. 
+
+```{r,out.width="49%",out.height="49%",fig.show='hold',fig.align='center', fig.cap="Left: Illustration of the monotonicity of forecasts around the sample mean (982), i.e. Q50 < Q51 < ... < Q55. Right: At income = 3000 we see the inconsistency Q54 < ... < Q51 < Q50 < Q55. Estimation method by Koenker and d\'Orey (1987)."}
+knitr::include_graphics(c("figure/Quantile_regression_engel_dataset_non_monotonic_at985.svg","figure/Quantile_regression_engel_dataset_non_monotonic_at3000.svg"), error = FALSE)
+```
+
+
+The larger the distance from the centroid the more inplausible the quantile regression‘s forecasts. On the right plot the forecasts for three income levels – 200, 300 and 500 – are presented. The consequence of quantile crossings /non-monotonicity is forecasts that violate the basic assumptions of distribution functions. The median forecast for an income of 200 is about 195. This is lower than the 13% percentile forecast (> 200). 
+
+
+```{r, message=FALSE, warning = FALSE,fig.show='hide'}
+taus <- seq(0.01, 0.99, 0.01)
+model_qr <- quantreg::rq(foodexp ~ income, tau = taus, data = engel)
+test <- tibble(income = seq(0, 8000, 100))
+res <- list()
+for (i in 1:nrow(test))
+{
+  res[[i]] <- data.frame(
+    Forecast = as.numeric(predict(model_qr, test[i, ])),
+    Quantile = taus * 100,
+    Income  = test$income[i]
+  )
+}
+
+result <- bind_rows(res)
+medians <- result %>%
+  filter(Income %in% c(200, 300, 500), Quantile == 50) %>%
+  mutate(Income = factor(Income))
+
+p <- result %>%
+  filter(Income %in% c(200, 300, 500)) %>%
+  mutate(Income = factor(Income)) %>%
+  ggplot(aes(
+    x = Quantile,
+    y = Forecast,
+    group = Income,
+    color = Income
+  )) +
+  geom_point() +
+  geom_line() +
+  geom_hline(data = medians, aes(
+    yintercept = Forecast,
+    group = Income,
+    color = Income
+  ))+ 
+  theme_bw()
+
+p + ggsave(
+  "docs/figure/Quantile_regression_engel_dataset_3levels.svg",
+  height = 7,
+  width = 7,
+  dpi = 100
+)
+
+```
+
+
+```{r, class.source = 'fold-hide', out.width="60%", fig.cap="The quantile forecasts become less erratic for income values closer to its mean."}
+knitr::include_graphics("figure/Quantile_regression_engel_dataset_3levels.svg", error = FALSE)
+```
+
+
+There are 3 ways to enforce monotonicity: 
+
+* Restrictions in the optimisation
+* Restrictions on the functional form
+* Rearrangement of quantiles
+
+
+## Rearrangement of quantiles for monotonization
+
+This section presents the approach by [@Chernozhukov2010]. Let $u \mapsto Q_0(u|x)$ for $u \in (0,1)$ denote the quantile function of a response variable $Y$ given value $x$. Let $\hat{Q}_0(u|x)$ be a parametric or non parametric estimation of $Q_0(u|x)$. The estimated quantile function   $\hat{Q}_0(u|x)$  may be non monotone. For monotonization a technique denoted "Rearrangement" is applied. 
+
+Rearrangement is defined as a transformation of the form  $Y_x = \hat{Q}_0(u|x)$, where $\mathcal{U} \sim \text{Uniform}(0,1)$ and calculating the quantile $Y_x$ to obtain a new estimate $\hat{Q}_0^*(u|x)$ of the quantile function. The result of this rearrangement is shown in the plot below. 
+
+
+```{r, message=FALSE, warning = FALSE,fig.show='hide'}
+z <- rq(foodexp ~ income, tau = -1, data = engel)
+zp <- predict(z, newdata = list(income = 200), stepfun = TRUE)
+zpnostep <- predict(z, newdata = list(income = 0))
+svg("docs/figure/Quantile_regression_engel_dataset_rearranged.svg",
+  height = 7,
+  width = 7)
+plot(
+  zp,
+  do.points = FALSE,
+  xlab = expression(tau),
+  ylab = expression(Q (tau)), 
+  main = ""
+)
+plot(
+  rearrange(zp),
+  do.points = FALSE,
+  add = TRUE,
+  col.h = "red",
+  col.v = "red"
+)
+legend(
+  0,
+  350,
+  c("Before Rearrangement", "After Rearrangement"),
+  lty = 1,
+  col = c("black", "red")
+)
+a <- dev.off()
+```
+
+
+```{r, class.source = 'fold-hide', out.width="60%", fig.cap="Reordering non-monotonic quantile forecasts."}
+knitr::include_graphics("figure/Quantile_regression_engel_dataset_rearranged.svg", error = FALSE)
+```
+
+
+
+The distribution function of $Y_X$ and its quantiles are 
+
+$$\hat{F}(y|x) = \int_0^1 I( \hat{Q}(u|x) \leq y) du$$
+
+$$\hat{Q}_0^*(u|x) = \hat{F}^{-1}(u|x) = \inf{y:\hat{F}(y|x)  \geq u}  $$
+
+The distribution function is now monotone in $y$, and the quantiles are monotone in $u$. To estimate $\hat{Q}_0^*(u|x)$ a sequence $u_1, \ldots, u_n$ is generated for which the values $\hat{Q}_0(u_1|x),\ldots, \hat{Q}_0(u_n|x)$ are determined. From these values the $u$-th quantile is estimated. The properties of this method are: 
+
+* The quantiles $\hat{Q}_0^*(u|x)$  are monotone and closer to the true quantiles than the original quantiles
+
+$$|| \hat{Q}_0^* - \hat{Q}_0||_p  \leq || \hat{Q} - \hat{Q}_0||_p, p \in [1,\infty] $$ 
+
+* They deviate from the original quantiles $\hat{Q}_0(u|x)$ only when the original quantiles are non monontone. 
+
+* They have smaller estimation error than the original curves when the latter are not monotone.
+* They inherit the asymptotic properties from the original quantile curve (under weak conditions on non monotonic quantile estimates) so that all inference tools can be applied.
+* The theory holds without any constraints on the particular estimation method for the original quantiles $\hat{Q}_0(u|x)$ 
+sample size independence of data or parametric assumptions reason of non-monotonicity (like model misspecification, estimation error, etc.)
+
+## Nonparametric quantile regression
+
+[@Muggeo2013] use monotonic B-splines for the estimation of the quantiles. 
+
+The plot on the left shows the 5%, 10%, 25%, 75%, 90% and 95% percentiles. The right plot shows all percentiles. The advantage of this model is that the quantile forecasts are guaranteed to be monotonic. One of the drawbacks is the non-intuitive shapes of the quantiles as illustrated in the right plot below. 
+
+
+```{r, message=FALSE, warning = FALSE,fig.show='hide'}
+taus <- c(.05, .1, .25, .75, .9, .95)
+m4 <- gcrq(foodexp ~ ps(income, mon = 1, lambda = 5), tau = taus, data = engel)
+svg("docs/figure/Nonparametric_Quantile_Regression_engel_dataset_6quantiles.svg",
+  height = 7,
+  width = 7)
+plot(m4, pch = 20, res = TRUE)
+a <- dev.off()
+```
+
+```{r, message=FALSE, warning = FALSE,fig.show='hide'}
+taus <- seq(0.01, 0.99, 0.01)
+m5 <- gcrq(foodexp ~ ps(income, mon = 1, lambda = 5), tau = taus, data = engel)
+svg("docs/figure/Nonparametric_Quantile_Regression_engel_dataset_99quantiles.svg",
+  height = 7,
+  width = 7)
+plot(m5, pch = 20, res = TRUE)
+a <- dev.off()
+```
+
+
+```{r,out.width="49%",out.height="49%",fig.show='hold',fig.align='center', fig.cap="Non-parametric quantiles for the engel dataset. Left: 6 quantiles. Right: 99 quantiles"}
+knitr::include_graphics(c("figure/Nonparametric_Quantile_Regression_engel_dataset_6quantiles.svg","figure/Nonparametric_Quantile_Regression_engel_dataset_99quantiles.svg"), error = FALSE)
+```
+
+
+
+
+
+```{r, message=FALSE, warning = FALSE,fig.show='hide'}
+model <-
+  rq(foodexp ~ income, method = "lasso", data = engel)$coefficients
+test <- tibble(income = seq(0, 8000, 100),
+               foodexp = model[1] + model[2] * income)
+
+test_growth <- cbind(test, NA)
+
+res <- list()
+for (i in 1:nrow(test))
+{
+  res[[i]] <- data.frame(
+    Forecast = as.numeric(predict.gcrq(m5, test_growth[i, ])),
+    Quantile = taus * 100,
+    Income  = test$income[i]
+  )
+}
+result <- bind_rows(res)
+
+for (incomevalue in c(0, 200, 500, 2000, 5000, 8000))
+{
+  tmp <- result %>%
+    filter(Income %in% incomevalue)
+  #get the median forecast
+  med <- tmp %>% filter(Quantile == 50) %>% .$Forecast
+  
+  p <- tmp	%>%
+    ggplot(aes(x = Quantile, y = Forecast)) +
+    geom_point() +
+    geom_line() +
+    geom_hline(aes(yintercept = med)) +
+    geom_text(x = 10,
+              y = med * 1.02,
+              label = "Median forecast") +
+    labs(
+      title = paste0("Nonparametric quantile forecasts for income = ", incomevalue)
+    ) + 
+    theme_bw()
+  
+  p + ggsave(
+    paste0("docs/figure/Nonparametric_quantile_", incomevalue, ".svg"),
+    height = 7,
+    width = 7,
+    dpi = 100
+  )
+}
+
+```
+
+A further drawback of the model is that the forecasts do not change at certain quantile levels. This is illustrated in the pots below for different values of the income of the engel dataset. 
+
+```{r,out.width="49%",out.height="32%",fig.show='hold',fig.align='center', fig.cap="All forecasts are monotonically increasing with the quantile. Forecasts for different levels of the income variable are identical"}
+knitr::include_graphics(c("figure/Nonparametric_quantile_0.svg","figure/Nonparametric_quantile_200.svg"), error = FALSE)
+knitr::include_graphics(c("figure/Nonparametric_quantile_500.svg","figure/Nonparametric_quantile_2000.svg"), error = FALSE)
+knitr::include_graphics(c("figure/Nonparametric_quantile_5000.svg","figure/Nonparametric_quantile_8000.svg"), error = FALSE)
+```
+
+
+
+## Monotone Composite Quantile Regression Neural Network (MCQRNN)
+
+The Monotone Composite Quantile Regression Neural Network (MCQRNN) for simultaneous estimation of multiple non-crossing quantiles by [@Cannon2018] is based on the multi-layer perceptron (MLP) neural network with partial monotonicity constraints [@Zhang1999]. 
+
+$$h_j(t) = f\left(\sum_{m \in M} x_m(t) \exp\left(W_{mj}^{(h)}\right)  + \sum_{i \in I}  x_i(t)  W_{ij}^{(h)} + b_j^{(h)}  \right) $$
+
+$M$ is the set of indices for covariates with a monotone increasing relationship with the prediction, $I$ is the corresponding set of indices for covariates without monotonicity constraints. 
+
+The MCQRNN generates monotonic forecasts in $\tau$, i.e. non-crossing quantile functions $\tau_1 < \tau_2 < \ldots < \tau_K$, by stacking $K$ copies of the the covariate dataset $\matr{X}$ and the response vector $\matr{y}$ to $\matr{X}^{(S)}$ and $\matr{y}^{(S)}$. The quantile $\tau_i$ is added to $\matr{X}$ as an explanatory variable for the MQRNN quantile regression. The $\tau_i$ are treated as monotone covariates. This means that for estimating 99 percentiles the number of rows in the dataset increases 99 times. 
+
+$$\matr{X}^{(S)} = \left[
+\begin{matrix}
+\tau_1 & x_1(1) & \dots     & x_{\#1}(1) \\
+\vdots & \vdots & \ddots    &\vdots\\
+\tau_1 & x_1(N) & \dots     & x_{\#1}(N)\\
+\tau_2 & x_1(1) & \dots     & x_{\#1}(1)\\
+\vdots & \vdots & \ddots    &\vdots\\
+\tau_2 & x_1(N) & \dots     & x_{\#1}(N)\\
+\vdots & \vdots & \vdots    &\vdots\\
+\tau_K & x_1(1) & \dots     & x_{\#1}(1)\\
+\vdots & \vdots & \ddots    &\vdots\\
+\tau_K & x_1(N) & \dots     & x_{\#1}(N)\\
+\end{matrix}\right],
+\matr{y}^{(S)} = 
+\left[
+\begin{matrix}
+y(1)     \\
+\vdots  \\
+y(N)     \\
+y(1)     \\
+\vdots  \\
+y(N)     \\
+\vdots  \\
+y(1)     \\
+\vdots  \\
+y(N)     \\
+\end{matrix}\right]$$
+          
+
+
+```{r, message=FALSE, warning = FALSE,fig.show='hide'}
+x <- as.matrix(engel$income)
+y <- as.matrix(engel$foodexp)
+
+fit.mcqrnn <-
+  mcqrnn.fit(
+    x,
+    y,
+    n.hidden = 3,
+    n.hidden2 = 3,
+    tau = seq(0.01, 0.99, by = 0.01),
+    iter.max = 500,
+    trace = FALSE
+  )
+pred.mcqrnn.alltaus <- mcqrnn.predict(x, fit.mcqrnn)
+pred.mcqrnn.selectedtaus <-
+  mcqrnn.predict(x, fit.mcqrnn, tau = c(0.05, 0.25, 0.5, 0.75, 0.9, 0.95))
+
+df <- data.frame(pred.mcqrnn.selectedtaus)
+total <- cbind(df, x, y)
+colnames(total) <-
+  c("5", "25", "50", "75", "90", "95", "Income", "Foodexp")
+
+total <- total %>%
+  gather("5":"95", key = Quantile, value = Forecast) %>%
+  mutate(Quantile = paste0(Quantile, "%"))
+
+p<- ggplot() +
+  geom_point(data = total, aes(x = Income, y = Foodexp)) +
+  geom_line(data = total,
+            aes(
+              x = Income,
+              y = Forecast,
+              group = Quantile,
+              color = Quantile
+            )) +
+  theme_light(base_size = 14) +
+  scale_colour_brewer(palette = "Paired") +
+  labs(
+    title = paste0(
+      "Quantile forecasts of a monotone composite ",
+      "quantile regression neural network (MCQRNN)"
+    )
+  ) + 
+  theme_bw(base_size = 14)
+
+p + ggsave(
+  paste0("docs/figure/MQRNN.svg"),
+  height = 7,
+  width = 7,
+  dpi = 100
+)
+
+```
+
+
+The drawback of this procedure is the increasing runtime. The plot below shows the quantile estimates for the engel dataset. 
+
+```{r, class.source = 'fold-hide', out.width="60%", fig.cap="Quantile forecasts of a monotone composite quantile regression neural network (MCQRNN)"}
+knitr::include_graphics("figure/MQRNN.svg", error = FALSE)
+```
+
+
+## Quantile forecasts with Extremely Randomized Trees
+
+Extremely randomized trees (ET, see [@Geurts2006]) differ from random forests (RF) in two aspects: 
+
+* ET use the complete training dataset rather than a bootstrap replica to grow the trees.
+* ET split nodes by choosing cut-points for each feature fully at random. This means the randomness is not caused by bootstrapping the data, but by the random splits of all observations. Once the split points are selected, both RF and ET choose the optimal feature. 
+
+Quantile regression forests (QRF) (and the quantile estimates by ET) differ from random forests. For each node in each tree, RF keep only the mean of the observations that fall into this node. QRF keep the value of all observations in this node, not just their mean, and assesses the conditional distribution based on this information. 
+
+
+
+```{r, message=FALSE, warning = FALSE,fig.show='hide'}
+y <- engel$foodexp
+x <- engel %>% select(income)
+et <-
+  extraTrees(
+    x,
+    y,
+    numRandomCuts = 2,
+    nodesize = 4,
+    ntree = 2000,
+    quantile = T
+  )
+
+forecasts <- list()
+quantiles <- c(0.01, 0.02, 0.03, 0.97, 0.98, 0.99)
+for (i in 1:length(quantiles))
+{
+  df <- data.frame(
+    Forecast = predict(et, x, quantile = quantiles[i]),
+    Income = x$income,
+    Quantile = paste0(as.integer(100 * quantiles[i]), "%")
+  )
+  forecasts[[i]] <- df
+}
+
+tmp <- do.call("rbind", forecasts)
+
+p <- ggplot() +
+  geom_line(
+    data = tmp,
+    aes(
+      x = Income,
+      y = Forecast,
+      color = Quantile,
+      group = Quantile
+    ),
+    size = 1
+  ) +
+  geom_point(data = engel, aes(x = income, y = foodexp)) +
+  theme_bw() +
+  labs(title = "Extratrees' forecasts for the lowest and highest percentiles")
+
+p + ggsave(
+  paste0("docs/figure/ExtraTrees.svg"),
+  height = 7,
+  width = 7,
+  dpi = 100
+)
+
+```
+
+
+```{r, class.source = 'fold-hide', out.width="60%", fig.cap="Quantile forecasts of an extraTrees model. Forecasts are generated on the training data (no cross validation). Note the monotonicity and the overfitting."}
+knitr::include_graphics("figure/ExtraTrees.svg", error = FALSE)
+```
+
+
+
+
+
+## References
+
+
+
+
+
+
+
+
+
+
+
+
+
+	
+
+
+
